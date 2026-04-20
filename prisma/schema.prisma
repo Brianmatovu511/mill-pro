@@ -1,0 +1,411 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════
+// COMPANY (Multi-tenant)
+// ═══════════════════════════════════
+model Company {
+  id          String   @id @default(uuid())
+  code        String?  @unique
+  name        String
+  phone       String?
+  address     String?
+  currency    String   @default("UGX")
+  logo        String?  @default("🌽")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users       User[]
+  employees   Employee[]
+  taskTypes   TaskType[]
+  workLogs    WorkLog[]
+  payments    Payment[]
+  batches     ProductionBatch[]
+  purchases   Purchase[]
+  expenses    Expense[]
+  sales       Sale[]
+  orders      Order[]
+  customers   Customer[]
+  stockAdj       StockAdjustment[]
+  auditLogs      AuditLog[]
+  pendingActions PendingAction[]
+
+  @@map("companies")
+}
+
+// ═══════════════════════════════════
+// USER
+// ═══════════════════════════════════
+model User {
+  id           String    @id @default(uuid())
+  companyId    String    @map("company_id")
+  name         String
+  email        String?
+  phone        String?
+  passwordHash String    @map("password_hash")
+  role         Role      @default(ADMIN)
+  active       Boolean   @default(true)
+  lastLogin    DateTime? @map("last_login")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  company          Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  auditLogs        AuditLog[]
+  pendingRequests  PendingAction[] @relation("PendingRequester")
+  pendingReviews   PendingAction[] @relation("PendingReviewer")
+
+  @@unique([email, companyId])
+  @@index([companyId])
+  @@map("users")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  SUPERVISOR
+}
+
+// ═══════════════════════════════════
+// EMPLOYEE
+// ═══════════════════════════════════
+model Employee {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  name      String
+  phone     String?
+  role      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workLogs WorkLog[]
+  payments Payment[]
+
+  @@map("employees")
+}
+
+// ═══════════════════════════════════
+// TASK TYPES
+// ═══════════════════════════════════
+model TaskType {
+  id         String  @id @default(uuid())
+  companyId  String  @map("company_id")
+  name       String
+  payMode    PayMode @default(PER_UNIT) @map("pay_mode")
+  rate       Float   @default(0)
+  nightBonus Float   @default(0) @map("night_bonus")
+  active     Boolean @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workLogs WorkLog[]
+
+  @@map("task_types")
+}
+
+enum PayMode {
+  PER_UNIT
+  PER_HOUR
+  PER_SHIFT
+}
+
+// ═══════════════════════════════════
+// WORK LOGS
+// ═══════════════════════════════════
+model WorkLog {
+  id         String   @id @default(uuid())
+  companyId  String   @map("company_id")
+  employeeId String   @map("employee_id")
+  taskTypeId String   @map("task_type_id")
+  date       DateTime @db.Date
+  shift      String   @default("Day")
+  quantity   Float    @default(0)
+  hours      Float    @default(0)
+  totalPay   Float    @default(0) @map("total_pay")
+  notes      String?
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  taskType TaskType @relation(fields: [taskTypeId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, date])
+  @@index([employeeId])
+  @@map("work_logs")
+}
+
+// ═══════════════════════════════════
+// PAYMENTS
+// ═══════════════════════════════════
+model Payment {
+  id         String      @id @default(uuid())
+  companyId  String      @map("company_id")
+  employeeId String      @map("employee_id")
+  date       DateTime    @db.Date
+  amount     Float
+  method     String      @default("Cash")
+  type       PaymentType @default(WEEKLY)
+  notes      String?
+  approved   Boolean     @default(false)
+  approvedBy String?     @map("approved_by")
+  createdBy  String?     @map("created_by")
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+enum PaymentType {
+  INSTANT
+  WEEKLY
+}
+
+// ═══════════════════════════════════
+// PRODUCTION BATCHES
+// ═══════════════════════════════════
+model ProductionBatch {
+  id           String   @id @default(uuid())
+  companyId    String   @map("company_id")
+  batchNumber  String?  @map("batch_number")
+  date         DateTime @db.Date
+  maizeIn      Float    @default(0) @map("maize_in")
+  flourOut     Float    @default(0) @map("flour_out")
+  branOut      Float    @default(0) @map("bran_out")
+  wasteKg      Float    @default(0) @map("waste_kg")
+  shift        String   @default("Day")
+  machine      String?
+  fuelCost     Float    @default(0) @map("fuel_cost")
+  packagingUsed Float   @default(0) @map("packaging_used")
+  notes        String?
+  createdBy    String?  @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("production_batches")
+}
+
+// ═══════════════════════════════════
+// PURCHASES
+// ═══════════════════════════════════
+model Purchase {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  date      DateTime @db.Date
+  supplier  String?
+  itemType  String   @default("MAIZE") @map("item_type")
+  quantity  Float    @default(0)
+  unit      String   @default("kg")
+  unitCost  Float    @default(0) @map("unit_cost")
+  totalCost Float    @default(0) @map("total_cost")
+  notes     String?
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("purchases")
+}
+
+// ═══════════════════════════════════
+// EXPENSES
+// ═══════════════════════════════════
+model Expense {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  date      DateTime @db.Date
+  category  String
+  amount    Float    @default(0)
+  notes     String?
+  recurring Boolean  @default(false)
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("expenses")
+}
+
+// ═══════════════════════════════════
+// CUSTOMERS
+// ═══════════════════════════════════
+model Customer {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sales   Sale[]
+  orders  Order[]
+
+  @@map("customers")
+}
+
+// ═══════════════════════════════════
+// SALES
+// ═══════════════════════════════════
+model Sale {
+  id         String   @id @default(uuid())
+  companyId  String   @map("company_id")
+  customerId String?  @map("customer_id")
+  date       DateTime @db.Date
+  customer   String   @map("customer_name")
+  phone      String?
+  receiptNo  String   @unique @map("receipt_no")
+  payMethod  String   @default("Cash") @map("pay_method")
+  total      Float    @default(0)
+  paidAmount Float    @default(0) @map("paid_amount")
+  notes      String?
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customerRel Customer? @relation(fields: [customerId], references: [id])
+  items      SaleItem[]
+
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String @id @default(uuid())
+  saleId    String @map("sale_id")
+  itemType  String @default("FLOUR") @map("item_type")
+  quantity  Float  @default(0)
+  unitPrice Float  @default(0) @map("unit_price")
+  lineTotal Float  @default(0) @map("line_total")
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@map("sale_items")
+}
+
+// ═══════════════════════════════════
+// ORDERS
+// ═══════════════════════════════════
+model Order {
+  id         String      @id @default(uuid())
+  companyId  String      @map("company_id")
+  customerId String?     @map("customer_id")
+  orderNo    String?     @map("order_no")
+  date       DateTime    @db.Date
+  customer   String      @map("customer_name")
+  phone      String?
+  product    String?
+  quantity   Float       @default(0)
+  unitPrice  Float       @default(0) @map("unit_price")
+  total      Float       @default(0)
+  status     OrderStatus @default(Pending)
+  notes      String?
+  createdBy  String?     @map("created_by")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customerRel Customer? @relation(fields: [customerId], references: [id])
+
+  @@map("orders")
+}
+
+enum OrderStatus {
+  Pending
+  Processing
+  Packed
+  Dispatched
+  Completed
+  Cancelled
+}
+
+// ═══════════════════════════════════
+// STOCK ADJUSTMENTS
+// ═══════════════════════════════════
+model StockAdjustment {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  date      DateTime @db.Date
+  itemType  String   @map("item_type")
+  quantity  Float
+  reason    String
+  notes     String?
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("stock_adjustments")
+}
+
+// ═══════════════════════════════════
+// PENDING ACTIONS (admin requests awaiting owner approval)
+// ═══════════════════════════════════
+model PendingAction {
+  id          String    @id @default(uuid())
+  companyId   String    @map("company_id")
+  requestedBy String    @map("requested_by")
+  action      String    // EDIT | DELETE
+  entity      String    // Employee, Sale, WorkLog, etc.
+  entityId    String    @map("entity_id")
+  entityData  Json?     @map("entity_data")
+  entityLabel String?   @map("entity_label")
+  status      String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  reviewedBy  String?   @map("reviewed_by")
+  reviewedAt  DateTime? @map("reviewed_at")
+  reviewNote  String?   @map("review_note")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requester User    @relation("PendingRequester", fields: [requestedBy], references: [id])
+  reviewer  User?   @relation("PendingReviewer", fields: [reviewedBy], references: [id])
+
+  @@map("pending_actions")
+}
+
+// ═══════════════════════════════════
+// MILL ACTIVITY LOG (INCO Demo — public)
+// ═══════════════════════════════════
+model MillActivityLog {
+  id          String   @id @default(uuid())
+  activity    String   @default("production_check")
+  flourKg     Float
+  maizeKg     Float
+  efficiency  Float
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("mill_activity_logs")
+}
+
+// ═══════════════════════════════════
+// AUDIT LOG
+// ═══════════════════════════════════
+model AuditLog {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  userId    String?  @map("user_id")
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  details   String?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@map("audit_logs")
+}

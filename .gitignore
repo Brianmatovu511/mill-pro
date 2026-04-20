@@ -1,0 +1,51 @@
+# ── Dependencies ──
+node_modules/
+client/node_modules/
+
+# ── Build output ──
+client/dist/
+
+# ── Environment & Secrets ──
+.env
+.env.*
+!.env.example
+!.env.staging
+!.env.production
+*.pem
+*.key
+
+# ── Prisma ──
+prisma/migrations/
+
+# ── Logs ──
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# ── OS ──
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+
+# ── Editor ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Runtime ──
+.pm2/
+pids/
+*.pid
+
+# ── Misc ──
+.cache/
+.parcel-cache/
+.claude/

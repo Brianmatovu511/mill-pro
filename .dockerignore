@@ -1,0 +1,20 @@
+node_modules
+client/node_modules
+client/dist
+coverage
+.git
+.husky
+.vscode
+.idea
+*.log
+.env
+.env.*
+!.env.example
+prisma/migrations
+mavericks
+professor instructions
+tests
+*.md
+.eslintrc*
+eslint.config.js
+nodemon.json

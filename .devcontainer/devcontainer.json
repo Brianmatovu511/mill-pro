@@ -1,0 +1,15 @@
+{
+  "name": "MillPro Enterprise",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "forwardPorts": [5000],
+  "portsAttributes": {
+    "5000": {
+      "label": "MillPro App",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postStartCommand": "echo 'App is running at http://localhost:5000 — visit /demo.html for the one-button demo'",
+  "remoteUser": "node"
+}
