@@ -53,7 +53,7 @@ const Spinner = () => <div style={{width:40,height:40,border:`3px solid ${T.brd}
 const Toast = ({msg,type}) => { if(!msg)return null; return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:type==='error'?T.r:T.g,color:'#fff',padding:'12px 20px',borderRadius:10,fontSize:14,fontWeight:600,boxShadow:'0 8px 30px rgba(0,0,0,.2)',animation:'slideUp .3s ease-out'}}>{msg}</div>; };
 
 // ══════════════════════════════════════════
-// MARKETING / HOME PAGE
+// MARKETING / HOME PAGE  — 3D EDITION
 // ══════════════════════════════════════════
 function MarketingPage({ onSignIn, onRegister }) {
   const [scrolled, setScrolled] = useState(false);
@@ -61,12 +61,84 @@ function MarketingPage({ onSignIn, onRegister }) {
   const [demoResult, setDemoResult] = useState(null);
   const [demoLogs, setDemoLogs]     = useState([]);
   const [demoError, setDemoError]   = useState('');
+  const canvasRef = useRef(null);
+  const mouseRef  = useRef({ x: 0.5, y: 0.5 });
+  const rafRef    = useRef(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // ── Particle canvas ──
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let W = canvas.width  = window.innerWidth;
+    let H = canvas.height = window.innerHeight;
+    const onResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
+    window.addEventListener('resize', onResize);
+
+    const NUM = 120;
+    const pts = Array.from({ length: NUM }, () => ({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.35, vy: (Math.random() - 0.5) * 0.35,
+      r: Math.random() * 1.6 + 0.4,
+      hue: Math.random() < 0.5 ? 130 : 45,
+    }));
+
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H);
+      for (const p of pts) {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = p.hue === 130 ? 'rgba(26,122,32,0.55)' : 'rgba(201,150,30,0.5)';
+        ctx.fill();
+      }
+      // connect close pairs
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+          const d = Math.sqrt(dx*dx + dy*dy);
+          if (d < 110) {
+            ctx.beginPath();
+            ctx.moveTo(pts[i].x, pts[i].y);
+            ctx.lineTo(pts[j].x, pts[j].y);
+            ctx.strokeStyle = `rgba(201,150,30,${0.12 * (1 - d / 110)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+      rafRef.current = requestAnimationFrame(draw);
+    };
+    draw();
+
+    const onMove = (e) => {
+      mouseRef.current = { x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight };
+    };
+    window.addEventListener('mousemove', onMove);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('mousemove', onMove);
+    };
+  }, []);
+
+  // 3D tilt helper
+  const tilt3D = (e) => {
+    const el = e.currentTarget;
+    const r = el.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width  - 0.5;
+    const y = (e.clientY - r.top)  / r.height - 0.5;
+    el.style.transform = `perspective(700px) rotateY(${x * 14}deg) rotateX(${-y * 14}deg) scale(1.03)`;
+  };
+  const untilt = (e) => { e.currentTarget.style.transform = ''; };
 
   const loadDemoLogs = async () => {
     try {
@@ -122,202 +194,268 @@ function MarketingPage({ onSignIn, onRegister }) {
 
   const navStyle = {
     position:'fixed', top:0, left:0, right:0, zIndex:100,
-    background: scrolled ? 'rgba(7,16,10,0.97)' : 'transparent',
-    backdropFilter: scrolled ? 'blur(16px)' : 'none',
-    borderBottom: scrolled ? '1px solid rgba(255,255,255,0.06)' : 'none',
-    transition: 'all 0.3s',
+    background: scrolled ? 'rgba(7,16,10,0.96)' : 'transparent',
+    backdropFilter: scrolled ? 'blur(20px) saturate(180%)' : 'none',
+    borderBottom: scrolled ? '1px solid rgba(201,150,30,0.15)' : 'none',
+    transition: 'all 0.35s cubic-bezier(.4,0,.2,1)',
     padding: '0 5%',
     display:'flex', alignItems:'center', justifyContent:'space-between', height:68,
   };
 
-  const Anchor = ({id, children}) => <a href={`#${id}`} style={{color:'rgba(255,255,255,0.65)',fontSize:14,fontWeight:500,textDecoration:'none',transition:'color .2s',padding:'4px 0'}}
-    onMouseEnter={e=>e.target.style.color='#fff'} onMouseLeave={e=>e.target.style.color='rgba(255,255,255,0.65)'}>{children}</a>;
+  const Anchor = ({id, children}) => <a href={`#${id}`} style={{color:'rgba(255,255,255,0.6)',fontSize:14,fontWeight:500,textDecoration:'none',transition:'color .2s',padding:'4px 0',letterSpacing:.3}}
+    onMouseEnter={e=>e.target.style.color='#fff'} onMouseLeave={e=>e.target.style.color='rgba(255,255,255,0.6)'}>{children}</a>;
 
-  const Section = ({id, children, bg=CREAM, style={}}) => <section id={id} style={{background:bg,padding:'90px 5%',...style}}>{children}</section>;
+  const Section = ({id, children, bg=CREAM, style={}}) => <section id={id} style={{background:bg,padding:'100px 5%',...style}}>{children}</section>;
 
-  const SectionTitle = ({tag, title, sub, light}) => <div style={{textAlign:'center',marginBottom:56}}>
-    {tag&&<div style={{display:'inline-block',padding:'5px 16px',borderRadius:20,background:light?'rgba(201,150,30,0.15)':'rgba(26,122,32,0.10)',color:light?GOLD:GRN,fontSize:12,fontWeight:700,letterSpacing:1.2,textTransform:'uppercase',marginBottom:12}}>{tag}</div>}
-    <h2 style={{fontFamily:FH,fontSize:'clamp(26px,4vw,40px)',fontWeight:900,color:light?'#fff':DARK,marginBottom:12,lineHeight:1.2}}>{title}</h2>
-    {sub&&<p style={{fontSize:16,color:light?'rgba(255,255,255,0.55)':'#5E6E5E',maxWidth:580,margin:'0 auto',lineHeight:1.7}}>{sub}</p>}
+  const SectionTitle = ({tag, title, sub, light}) => <div style={{textAlign:'center',marginBottom:60}}>
+    {tag&&<div style={{display:'inline-block',padding:'6px 18px',borderRadius:30,background:light?'rgba(201,150,30,0.12)':'rgba(26,122,32,0.10)',border:`1px solid ${light?'rgba(201,150,30,0.35)':'rgba(26,122,32,0.25)'}`,color:light?GOLD:GRN,fontSize:11,fontWeight:700,letterSpacing:1.8,textTransform:'uppercase',marginBottom:16}}>{tag}</div>}
+    <h2 style={{fontFamily:FH,fontSize:'clamp(26px,4vw,42px)',fontWeight:900,color:light?'#fff':DARK,marginBottom:14,lineHeight:1.15,letterSpacing:-.5}}>{title}</h2>
+    {sub&&<p style={{fontSize:16,color:light?'rgba(255,255,255,0.5)':'#5E6E5E',maxWidth:580,margin:'0 auto',lineHeight:1.75}}>{sub}</p>}
   </div>;
 
-  // Mini dashboard mockup
-  const DashMockup = () => <div style={{borderRadius:16,overflow:'hidden',boxShadow:'0 40px 120px rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.08)',background:'#1a2a1c',transform:'perspective(1000px) rotateX(2deg) rotateY(-4deg)',maxWidth:780,margin:'0 auto'}}>
-    {/* Window chrome */}
-    <div style={{background:'#0F1C12',padding:'10px 14px',display:'flex',alignItems:'center',gap:7,borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
-      <div style={{width:11,height:11,borderRadius:'50%',background:'#FF5F56'}}/><div style={{width:11,height:11,borderRadius:'50%',background:'#FFBD2E'}}/><div style={{width:11,height:11,borderRadius:'50%',background:'#27C93F'}}/>
-      <div style={{flex:1,margin:'0 12px',background:'rgba(255,255,255,0.06)',borderRadius:5,height:20,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:10,color:'rgba(255,255,255,0.3)'}}>millpro.app · Dashboard</span></div>
-    </div>
-    {/* App layout */}
-    <div style={{display:'flex',height:380}}>
-      {/* Sidebar */}
-      <div style={{width:52,background:'#0C150C',padding:'12px 5px',display:'flex',flexDirection:'column',gap:4}}>
-        <div style={{width:34,height:34,borderRadius:8,background:`linear-gradient(135deg,${GOLD},#C74B1A)`,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:10,fontSize:16}}>🌽</div>
-        {[IC.home,IC.users,IC.clock,IC.factory,IC.box,IC.receipt,IC.bar,IC.settings].map((ic,i)=><div key={i} style={{width:36,height:30,borderRadius:6,background:i===0?'#264226':'transparent',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto'}}><svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={i===0?'#fff':'rgba(255,255,255,0.35)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={ic}/></svg></div>)}
+  // ── 3D Dashboard Mockup ──
+  const DashMockup = () => (
+    <div style={{
+      borderRadius:20,overflow:'hidden',
+      boxShadow:'0 60px 180px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.08)',
+      background:'#1a2a1c',
+      transform:'perspective(1200px) rotateX(4deg) rotateY(-6deg) rotateZ(0.5deg)',
+      transformStyle:'preserve-3d',
+      maxWidth:780,margin:'0 auto',
+      transition:'transform .6s ease',
+    }}
+    onMouseEnter={e=>{ e.currentTarget.style.transform='perspective(1200px) rotateX(2deg) rotateY(-3deg) rotateZ(0deg) scale(1.02)'; }}
+    onMouseLeave={e=>{ e.currentTarget.style.transform='perspective(1200px) rotateX(4deg) rotateY(-6deg) rotateZ(0.5deg)'; }}
+    >
+      <div style={{background:'linear-gradient(90deg,#0F1C12,#132016)',padding:'10px 14px',display:'flex',alignItems:'center',gap:7,borderBottom:'1px solid rgba(255,255,255,0.05)'}}>
+        <div style={{width:11,height:11,borderRadius:'50%',background:'#FF5F56',boxShadow:'0 0 6px #FF5F5688'}}/><div style={{width:11,height:11,borderRadius:'50%',background:'#FFBD2E',boxShadow:'0 0 6px #FFBD2E88'}}/><div style={{width:11,height:11,borderRadius:'50%',background:'#27C93F',boxShadow:'0 0 6px #27C93F88'}}/>
+        <div style={{flex:1,margin:'0 12px',background:'rgba(255,255,255,0.05)',borderRadius:5,height:20,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:10,color:'rgba(255,255,255,0.25)'}}>millpro.app · Dashboard</span></div>
       </div>
-      {/* Main */}
-      <div style={{flex:1,padding:'16px 18px',background:'#F5F1EA',overflow:'hidden'}}>
-        <div style={{fontFamily:FH,fontSize:15,fontWeight:800,color:'#151A15',marginBottom:12}}>Welcome, James — Monday, 7 Apr 2026</div>
-        {/* Stat cards */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:12}}>
-          {[{l:'Employees',v:'14',c:GOLD},{l:'Week Payroll',v:'UGX 847K',c:'#C74B1A'},{l:'Month Sales',v:'UGX 4.2M',c:GRN},{l:'Flour Stock',v:'1,240 kg',c:'#1255A0'}].map((s,i)=><div key={i} style={{background:'#fff',borderRadius:8,padding:'10px 12px',border:'1px solid #DED8CC'}}>
-            <div style={{fontSize:8,fontWeight:700,color:'#5E6E5E',textTransform:'uppercase',letterSpacing:.5,marginBottom:4}}>{s.l}</div>
-            <div style={{fontSize:13,fontWeight:800,color:s.c,fontFamily:FH}}>{s.v}</div>
-          </div>)}
+      <div style={{display:'flex',height:380}}>
+        <div style={{width:52,background:'#0C150C',padding:'12px 5px',display:'flex',flexDirection:'column',gap:4}}>
+          <div style={{width:34,height:34,borderRadius:8,background:`linear-gradient(135deg,${GOLD},#C74B1A)`,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:10,fontSize:16,boxShadow:`0 4px 14px ${GOLD}44`}}>🌽</div>
+          {[IC.home,IC.users,IC.clock,IC.factory,IC.box,IC.receipt,IC.bar,IC.settings].map((ic,i)=><div key={i} style={{width:36,height:30,borderRadius:6,background:i===0?'rgba(38,66,38,0.8)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto'}}><svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={i===0?'#fff':'rgba(255,255,255,0.3)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={ic}/></svg></div>)}
         </div>
-        {/* Chart */}
-        <div style={{background:'#fff',borderRadius:8,padding:'10px 12px',border:'1px solid #DED8CC',marginBottom:8}}>
-          <div style={{fontSize:9,fontWeight:700,color:'#5E6E5E',marginBottom:8,textTransform:'uppercase',letterSpacing:.5}}>6-Month Revenue</div>
-          <div style={{display:'flex',alignItems:'flex-end',gap:6,height:60}}>
-            {[42,58,51,75,68,88].map((h,i)=><div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-              <div style={{width:'100%',height:h*0.6,borderRadius:'3px 3px 0 0',background:`linear-gradient(to top,${GRN},#4CAF50)`,opacity:0.85}}/>
-              <div style={{fontSize:7,color:'#98A698'}}>{'NDJFMA'[i]}</div>
+        <div style={{flex:1,padding:'16px 18px',background:'#F5F1EA',overflow:'hidden'}}>
+          <div style={{fontFamily:FH,fontSize:15,fontWeight:800,color:'#151A15',marginBottom:12}}>Welcome, James — Monday, 7 Apr 2026</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:12}}>
+            {[{l:'Employees',v:'14',c:GOLD},{l:'Week Payroll',v:'UGX 847K',c:'#C74B1A'},{l:'Month Sales',v:'UGX 4.2M',c:GRN},{l:'Flour Stock',v:'1,240 kg',c:'#1255A0'}].map((s,i)=><div key={i} style={{background:'#fff',borderRadius:8,padding:'10px 12px',border:'1px solid #DED8CC',boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
+              <div style={{fontSize:8,fontWeight:700,color:'#5E6E5E',textTransform:'uppercase',letterSpacing:.5,marginBottom:4}}>{s.l}</div>
+              <div style={{fontSize:13,fontWeight:800,color:s.c,fontFamily:FH}}>{s.v}</div>
             </div>)}
           </div>
-        </div>
-        {/* Work logs preview */}
-        <div style={{background:'#fff',borderRadius:8,padding:'8px 12px',border:'1px solid #DED8CC'}}>
-          <div style={{fontSize:9,fontWeight:700,color:'#5E6E5E',marginBottom:6,textTransform:'uppercase',letterSpacing:.5}}>Recent Work</div>
-          {[{n:'John Opio',t:'Milling Machine',p:'UGX 18,000'},{n:'Sarah Auma',t:'Packaging',p:'UGX 4,500'},{n:'Moses Okello',t:'Offloading',p:'UGX 3,500'}].map((r,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',padding:'4px 0',borderBottom:i<2?'1px solid #F0EBE0':''}}><div style={{fontSize:9,fontWeight:600,color:'#151A15'}}>{r.n} <span style={{color:'#98A698',fontWeight:400}}>· {r.t}</span></div><div style={{fontSize:9,fontWeight:700,color:GRN}}>{r.p}</div></div>)}
+          <div style={{background:'#fff',borderRadius:8,padding:'10px 12px',border:'1px solid #DED8CC',marginBottom:8}}>
+            <div style={{fontSize:9,fontWeight:700,color:'#5E6E5E',marginBottom:8,textTransform:'uppercase',letterSpacing:.5}}>6-Month Revenue</div>
+            <div style={{display:'flex',alignItems:'flex-end',gap:6,height:60}}>
+              {[42,58,51,75,68,88].map((h,i)=><div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                <div style={{width:'100%',height:h*0.6,borderRadius:'3px 3px 0 0',background:`linear-gradient(to top,${GRN},#4CAF50)`,opacity:0.85}}/>
+                <div style={{fontSize:7,color:'#98A698'}}>{'NDJFMA'[i]}</div>
+              </div>)}
+            </div>
+          </div>
+          <div style={{background:'#fff',borderRadius:8,padding:'8px 12px',border:'1px solid #DED8CC'}}>
+            <div style={{fontSize:9,fontWeight:700,color:'#5E6E5E',marginBottom:6,textTransform:'uppercase',letterSpacing:.5}}>Recent Work</div>
+            {[{n:'John Opio',t:'Milling Machine',p:'UGX 18,000'},{n:'Sarah Auma',t:'Packaging',p:'UGX 4,500'},{n:'Moses Okello',t:'Offloading',p:'UGX 3,500'}].map((r,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',padding:'4px 0',borderBottom:i<2?'1px solid #F0EBE0':''}}><div style={{fontSize:9,fontWeight:600,color:'#151A15'}}>{r.n} <span style={{color:'#98A698',fontWeight:400}}>· {r.t}</span></div><div style={{fontSize:9,fontWeight:700,color:GRN}}>{r.p}</div></div>)}
+          </div>
         </div>
       </div>
     </div>
-  </div>;
+  );
+
+  // Floating 3D orbs for hero
+  const Orb = ({top,left,size,color,delay}) => (
+    <div style={{position:'absolute',top,left,width:size,height:size,borderRadius:'50%',background:`radial-gradient(circle at 35% 35%,${color},transparent 70%)`,filter:'blur(40px)',opacity:.55,animation:`mp3dFloat ${6+delay}s ease-in-out infinite`,animationDelay:`${delay}s`,pointerEvents:'none'}}/>
+  );
 
   return <div style={{fontFamily:"'Inter',system-ui,sans-serif",overflowX:'hidden'}}>
+    <style>{`
+      @keyframes mp3dFloat { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-24px) scale(1.04)} }
+      @keyframes mp3dRotate { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+      @keyframes mp3dPulse { 0%,100%{opacity:.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.08)} }
+      @keyframes mp3dSlideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+      @keyframes mp3dGlow { 0%,100%{box-shadow:0 0 30px rgba(201,150,30,0.3)} 50%{box-shadow:0 0 60px rgba(201,150,30,0.7),0 0 120px rgba(201,150,30,0.3)} }
+      @keyframes mp3dMesh { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+      .mp-feat-card { transition:transform .3s cubic-bezier(.4,0,.2,1),box-shadow .3s,border-color .3s; cursor:default; transform-style:preserve-3d; }
+      .mp-feat-card:hover { box-shadow:0 24px 64px rgba(0,0,0,0.14),0 0 0 1px rgba(26,122,32,0.4); }
+      .mp-role-card { transition:transform .3s cubic-bezier(.4,0,.2,1),box-shadow .3s; transform-style:preserve-3d; }
+      .mp-role-card:hover { box-shadow:0 32px 80px rgba(0,0,0,0.18); }
+      .mp-step-card { transition:transform .3s cubic-bezier(.4,0,.2,1); }
+      .mp-step-card:hover { transform:translateY(-8px) scale(1.03); }
+      .mp-road-card { transition:transform .25s,box-shadow .25s; }
+      .mp-road-card:hover { transform:translateY(-5px) scale(1.02); box-shadow:0 20px 50px rgba(0,0,0,0.1); }
+      .mp-demo-btn { transition:transform .2s,box-shadow .2s; }
+      .mp-demo-btn:hover:not(:disabled) { transform:translateY(-3px) scale(1.02); }
+      .mp-cta-btn { transition:transform .2s,box-shadow .2s; }
+      .mp-cta-btn:hover { transform:translateY(-3px); }
+    `}</style>
+
     {/* ── NAV ── */}
     <nav style={navStyle}>
       <div style={{display:'flex',alignItems:'center',gap:10}}>
-        <span style={{fontSize:24}}>🌽</span>
+        <span style={{fontSize:26,filter:'drop-shadow(0 0 8px rgba(201,150,30,0.6))'}}>🌽</span>
         <span style={{fontFamily:FH,fontSize:20,fontWeight:800,color:'#fff',letterSpacing:-0.5}}>MillPro</span>
-        <span style={{fontSize:11,background:GOLD,color:'#000',borderRadius:4,padding:'2px 6px',fontWeight:700,letterSpacing:.5}}>Enterprise</span>
+        <span style={{fontSize:10,background:`linear-gradient(135deg,${GOLD},#E8B84B)`,color:'#000',borderRadius:4,padding:'2px 8px',fontWeight:800,letterSpacing:.8}}>Enterprise</span>
       </div>
-      <div style={{display:'flex',alignItems:'center',gap:28}}>
+      <div style={{display:'flex',alignItems:'center',gap:32}}>
         <Anchor id="features">Features</Anchor>
         <Anchor id="how">How it Works</Anchor>
         <Anchor id="roadmap">Roadmap</Anchor>
       </div>
       <div style={{display:'flex',alignItems:'center',gap:10}}>
-        <button onClick={onSignIn} style={{padding:'8px 20px',borderRadius:8,border:'1.5px solid rgba(255,255,255,0.25)',background:'transparent',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .2s'}} onMouseEnter={e=>{e.target.style.background='rgba(255,255,255,0.08)';}} onMouseLeave={e=>{e.target.style.background='transparent';}}>Sign In</button>
-        <button onClick={onRegister} style={{padding:'8px 20px',borderRadius:8,border:'none',background:`linear-gradient(135deg,${GRN},#2E8B35)`,color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',boxShadow:'0 4px 16px rgba(26,122,32,0.4)',transition:'all .2s'}} onMouseEnter={e=>e.target.style.transform='translateY(-1px)'} onMouseLeave={e=>e.target.style.transform=''}>Get Started Free</button>
+        <button onClick={onSignIn} style={{padding:'8px 22px',borderRadius:8,border:'1px solid rgba(255,255,255,0.18)',background:'rgba(255,255,255,0.04)',color:'rgba(255,255,255,0.85)',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .2s',backdropFilter:'blur(8px)'}} onMouseEnter={e=>{e.target.style.background='rgba(255,255,255,0.1)';e.target.style.borderColor='rgba(255,255,255,0.3)';}} onMouseLeave={e=>{e.target.style.background='rgba(255,255,255,0.04)';e.target.style.borderColor='rgba(255,255,255,0.18)';}}>Sign In</button>
+        <button onClick={onRegister} className="mp-cta-btn" style={{padding:'9px 22px',borderRadius:8,border:'none',background:`linear-gradient(135deg,${GRN},#2E8B35)`,color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',boxShadow:`0 4px 18px rgba(26,122,32,0.5)`}}>Get Started Free</button>
       </div>
     </nav>
 
     {/* ── HERO ── */}
-    <section style={{minHeight:'100vh',background:`linear-gradient(160deg,${DARK} 0%,${DARK2} 45%,${MID} 100%)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'120px 5% 80px',textAlign:'center',position:'relative',overflow:'hidden'}}>
-      {/* Background glow orbs */}
-      <div style={{position:'absolute',top:'15%',left:'10%',width:400,height:400,borderRadius:'50%',background:`radial-gradient(circle,${GRN}18,transparent 70%)`,pointerEvents:'none'}}/>
-      <div style={{position:'absolute',bottom:'10%',right:'8%',width:350,height:350,borderRadius:'50%',background:`radial-gradient(circle,${GOLD}12,transparent 70%)`,pointerEvents:'none'}}/>
-      <div style={{position:'relative',zIndex:1,maxWidth:800,margin:'0 auto'}}>
-        <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'7px 18px',borderRadius:20,background:'rgba(201,150,30,0.12)',border:'1px solid rgba(201,150,30,0.3)',marginBottom:28}}>
-          <span style={{width:7,height:7,borderRadius:'50%',background:GOLD,display:'inline-block'}}/>
-          <span style={{fontSize:12,color:GOLD,fontWeight:600,letterSpacing:.8}}>Built for East African Milling Companies</span>
+    <section style={{minHeight:'100vh',background:`linear-gradient(160deg,${DARK} 0%,#081409 30%,${DARK2} 60%,${MID} 100%)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'120px 5% 80px',textAlign:'center',position:'relative',overflow:'hidden'}}>
+      {/* Particle canvas */}
+      <canvas ref={canvasRef} style={{position:'absolute',inset:0,pointerEvents:'none',zIndex:0,opacity:.7}}/>
+      {/* 3D floating orbs */}
+      <Orb top="12%" left="8%"  size={500} color={`${GRN}30`}   delay={0}/>
+      <Orb top="55%" left="75%" size={420} color={`${GOLD}22`}  delay={1.5}/>
+      <Orb top="70%" left="5%"  size={300} color={`${GOLD}18`}  delay={3}/>
+      <Orb top="20%" left="72%" size={260} color={`${GRN}20`}   delay={2}/>
+      {/* Rotating grid overlay */}
+      <div style={{position:'absolute',inset:0,backgroundImage:`linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px)`,backgroundSize:'60px 60px',pointerEvents:'none',zIndex:0}}/>
+
+      <div style={{position:'relative',zIndex:1,maxWidth:840,margin:'0 auto',animation:'mp3dSlideUp .9s ease both'}}>
+        <div style={{display:'inline-flex',alignItems:'center',gap:9,padding:'8px 20px',borderRadius:30,background:'rgba(201,150,30,0.08)',border:'1px solid rgba(201,150,30,0.28)',marginBottom:32,backdropFilter:'blur(8px)'}}>
+          <span style={{width:7,height:7,borderRadius:'50%',background:GOLD,boxShadow:`0 0 8px ${GOLD}`,display:'inline-block',animation:'mp3dPulse 2s ease infinite'}}/>
+          <span style={{fontSize:12,color:GOLD,fontWeight:600,letterSpacing:1}}>Built for East African Milling Companies</span>
         </div>
-        <h1 style={{fontFamily:FH,fontSize:'clamp(36px,6vw,70px)',fontWeight:900,color:'#fff',lineHeight:1.1,marginBottom:22,letterSpacing:-1.5}}>
-          Run Your Mill.<br/><span style={{background:`linear-gradient(135deg,${GOLD},#E8B84B)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Master Your Numbers.</span>
+        <h1 style={{fontFamily:FH,fontSize:'clamp(38px,6.5vw,76px)',fontWeight:900,color:'#fff',lineHeight:1.05,marginBottom:26,letterSpacing:-2,textShadow:'0 4px 40px rgba(0,0,0,0.5)'}}>
+          Run Your Mill.<br/>
+          <span style={{background:`linear-gradient(135deg,${GOLD} 0%,#F5D06B 50%,${GOLD} 100%)`,backgroundSize:'200% auto',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'mp3dMesh 4s linear infinite'}}>Master Your Numbers.</span>
         </h1>
-        <p style={{fontSize:'clamp(15px,2vw,18px)',color:'rgba(255,255,255,0.55)',lineHeight:1.75,maxWidth:580,margin:'0 auto 38px'}}>
+        <p style={{fontSize:'clamp(15px,2vw,18px)',color:'rgba(255,255,255,0.5)',lineHeight:1.8,maxWidth:600,margin:'0 auto 44px'}}>
           The all-in-one management system for maize and grain milling companies. Track production, manage payroll, record sales, and gain full financial clarity — from any device.
         </p>
-        <div style={{display:'flex',gap:14,justifyContent:'center',flexWrap:'wrap',marginBottom:64}}>
-          <button onClick={onRegister} style={{padding:'15px 34px',borderRadius:12,background:`linear-gradient(135deg,${GRN},#2E8B35)`,color:'#fff',fontSize:15,fontWeight:700,border:'none',cursor:'pointer',boxShadow:`0 6px 28px ${GRN}55`,transition:'all .25s'}} onMouseEnter={e=>e.target.style.transform='translateY(-2px)'} onMouseLeave={e=>e.target.style.transform=''}>Start Free Today →</button>
-          <button onClick={onSignIn} style={{padding:'15px 34px',borderRadius:12,background:'rgba(255,255,255,0.07)',color:'#fff',fontSize:15,fontWeight:600,border:'1.5px solid rgba(255,255,255,0.2)',cursor:'pointer',transition:'all .25s'}} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.12)'} onMouseLeave={e=>e.target.style.background='rgba(255,255,255,0.07)'}>Sign In to Your Account</button>
-          <a href="#demo" style={{padding:'15px 34px',borderRadius:12,background:`rgba(201,150,30,0.15)`,color:GOLD,fontSize:15,fontWeight:600,border:`1.5px solid rgba(201,150,30,0.4)`,cursor:'pointer',transition:'all .25s',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:8}} onMouseEnter={e=>e.currentTarget.style.background='rgba(201,150,30,0.25)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(201,150,30,0.15)'}>🌽 Try Live Demo</a>
+        <div style={{display:'flex',gap:14,justifyContent:'center',flexWrap:'wrap',marginBottom:68}}>
+          <button onClick={onRegister} className="mp-cta-btn" style={{padding:'16px 36px',borderRadius:12,background:`linear-gradient(135deg,${GRN},#2E8B35)`,color:'#fff',fontSize:15,fontWeight:700,border:'none',cursor:'pointer',boxShadow:`0 8px 32px ${GRN}55,0 2px 0 rgba(255,255,255,0.1) inset`}}>Start Free Today →</button>
+          <button onClick={onSignIn} style={{padding:'16px 36px',borderRadius:12,background:'rgba(255,255,255,0.05)',color:'rgba(255,255,255,0.85)',fontSize:15,fontWeight:600,border:'1px solid rgba(255,255,255,0.16)',cursor:'pointer',transition:'all .25s',backdropFilter:'blur(8px)'}} onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.1)';}} onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.05)';}}>Sign In to Your Account</button>
+          <a href="#demo" style={{padding:'16px 36px',borderRadius:12,background:`rgba(201,150,30,0.1)`,color:GOLD,fontSize:15,fontWeight:600,border:`1px solid rgba(201,150,30,0.35)`,cursor:'pointer',transition:'all .25s',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:8,backdropFilter:'blur(8px)'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(201,150,30,0.2)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(201,150,30,0.1)'}>🌽 Try Live Demo</a>
         </div>
         {/* Stats bar */}
-        <div style={{display:'flex',gap:0,justifyContent:'center',flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.08)',paddingTop:32}}>
-          {[{v:'10+',l:'Report Types'},{v:'3',l:'User Roles'},{v:'Real-time',l:'Inventory'},{v:'Cloud',l:'Hosted & Secure'}].map((s,i)=><div key={i} style={{padding:'0 32px',borderRight:i<3?'1px solid rgba(255,255,255,0.08)':'none',textAlign:'center'}}>
-            <div style={{fontSize:'clamp(20px,3vw,28px)',fontWeight:900,color:'#fff',fontFamily:FH,lineHeight:1}}>{s.v}</div>
-            <div style={{fontSize:12,color:'rgba(255,255,255,0.4)',marginTop:4,fontWeight:500}}>{s.l}</div>
+        <div style={{display:'flex',gap:0,justifyContent:'center',flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.07)',paddingTop:36,background:'rgba(255,255,255,0.02)',borderRadius:'0 0 20px 20px',backdropFilter:'blur(4px)'}}>
+          {[{v:'10+',l:'Report Types'},{v:'3',l:'User Roles'},{v:'Real-time',l:'Inventory'},{v:'Cloud',l:'Hosted & Secure'}].map((s,i)=><div key={i} style={{padding:'0 36px',borderRight:i<3?'1px solid rgba(255,255,255,0.07)':'none',textAlign:'center'}}>
+            <div style={{fontSize:'clamp(20px,3vw,30px)',fontWeight:900,color:'#fff',fontFamily:FH,lineHeight:1,textShadow:`0 0 20px ${GOLD}44`}}>{s.v}</div>
+            <div style={{fontSize:11,color:'rgba(255,255,255,0.35)',marginTop:5,fontWeight:500,letterSpacing:.5}}>{s.l}</div>
           </div>)}
         </div>
       </div>
-      {/* Dashboard preview */}
-      <div style={{position:'relative',zIndex:1,width:'100%',maxWidth:900,margin:'70px auto 0',padding:'0 2%'}}>
+
+      {/* 3D Dashboard preview */}
+      <div style={{position:'relative',zIndex:1,width:'100%',maxWidth:920,margin:'80px auto 0',padding:'0 2%'}}>
         <DashMockup/>
-        <div style={{position:'absolute',inset:0,background:`linear-gradient(to top,${DARK2} 0%,transparent 50%)`,pointerEvents:'none'}}/>
+        <div style={{position:'absolute',inset:0,background:`linear-gradient(to top,${DARK2} 0%,transparent 45%)`,pointerEvents:'none',borderRadius:20}}/>
       </div>
     </section>
 
     {/* ── FEATURES ── */}
     <Section id="features" bg={CREAM}>
       <SectionTitle tag="Powerful Features" title="Everything a Mill Needs, Nothing It Doesn't" sub="Purpose-built for grain milling — not a generic business app. Every feature is designed around how real mills operate."/>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:20,maxWidth:1100,margin:'0 auto'}}>
-        {features.map((f,i)=><div key={i} style={{background:'#fff',borderRadius:16,padding:'28px 24px',border:'1px solid #E8E2D8',transition:'all .25s',cursor:'default'}} onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-4px)';e.currentTarget.style.boxShadow='0 16px 48px rgba(0,0,0,0.08)';e.currentTarget.style.borderColor=GRN;}} onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='';e.currentTarget.style.borderColor='#E8E2D8';}}>
-          <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${GRN}18,${GRN}08)`,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16,border:`1px solid ${GRN}22`}}>
-            <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={GRN} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={f.icon}/></svg>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(310px,1fr))',gap:22,maxWidth:1100,margin:'0 auto'}}>
+        {features.map((f,i)=>(
+          <div key={i} className="mp-feat-card"
+            style={{background:'#fff',borderRadius:20,padding:'32px 28px',border:'1px solid #E8E2D8',position:'relative',overflow:'hidden'}}
+            onMouseMove={tilt3D} onMouseLeave={untilt}>
+            {/* shimmer top edge */}
+            <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,transparent,${GRN}55,transparent)`,opacity:0,transition:'opacity .3s'}} className="mp-feat-shimmer"/>
+            <div style={{width:52,height:52,borderRadius:14,background:`linear-gradient(135deg,${GRN}18,${GRN}06)`,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:18,border:`1px solid ${GRN}20`,boxShadow:`0 4px 20px ${GRN}14`}}>
+              <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={GRN} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={f.icon}/></svg>
+            </div>
+            <h3 style={{fontFamily:FH,fontSize:19,fontWeight:800,color:DARK,marginBottom:10}}>{f.title}</h3>
+            <p style={{fontSize:14,color:'#5E6E5E',lineHeight:1.75}}>{f.desc}</p>
           </div>
-          <h3 style={{fontFamily:FH,fontSize:18,fontWeight:800,color:DARK,marginBottom:8}}>{f.title}</h3>
-          <p style={{fontSize:13.5,color:'#5E6E5E',lineHeight:1.7}}>{f.desc}</p>
-        </div>)}
+        ))}
       </div>
     </Section>
 
     {/* ── HOW IT WORKS ── */}
-    <Section id="how" bg={`linear-gradient(135deg,${DARK} 0%,${DARK2} 100%)`} style={{padding:'90px 5%'}}>
+    <Section id="how" bg={`linear-gradient(160deg,${DARK} 0%,${DARK2} 50%,${MID} 100%)`} style={{padding:'100px 5%',position:'relative',overflow:'hidden'}}>
+      {/* bg grid */}
+      <div style={{position:'absolute',inset:0,backgroundImage:`linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px)`,backgroundSize:'80px 80px',pointerEvents:'none'}}/>
       <SectionTitle tag="Get Started in Minutes" title="Simple Setup, Powerful Results" sub="No technical expertise needed. If you can use a smartphone, you can run MillPro." light/>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:24,maxWidth:900,margin:'0 auto'}}>
-        {steps.map((s,i)=><div key={i} style={{textAlign:'center',padding:'32px 24px'}}>
-          <div style={{width:60,height:60,borderRadius:'50%',background:`linear-gradient(135deg,${GOLD},#E8B84B)`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px',fontSize:20,fontWeight:900,color:'#000',fontFamily:FH}}>{s.n}</div>
-          <h3 style={{fontFamily:FH,fontSize:19,fontWeight:800,color:'#fff',marginBottom:10}}>{s.title}</h3>
-          <p style={{fontSize:13.5,color:'rgba(255,255,255,0.5)',lineHeight:1.7}}>{s.desc}</p>
-        </div>)}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:28,maxWidth:960,margin:'0 auto',position:'relative',zIndex:1}}>
+        {steps.map((s,i)=>(
+          <div key={i} className="mp-step-card" style={{textAlign:'center',padding:'44px 28px',borderRadius:24,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',backdropFilter:'blur(8px)',position:'relative',overflow:'hidden'}}>
+            <div style={{position:'absolute',top:-30,right:-30,width:120,height:120,borderRadius:'50%',background:`radial-gradient(circle,${GOLD}18,transparent 70%)`,pointerEvents:'none'}}/>
+            <div style={{width:68,height:68,borderRadius:'50%',background:`linear-gradient(135deg,${GOLD},#E8B84B)`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 24px',fontSize:22,fontWeight:900,color:'#000',fontFamily:FH,boxShadow:`0 8px 30px ${GOLD}55,0 2px 0 rgba(255,255,255,0.3) inset`}}>{s.n}</div>
+            <h3 style={{fontFamily:FH,fontSize:20,fontWeight:800,color:'#fff',marginBottom:12,textShadow:'0 2px 10px rgba(0,0,0,0.4)'}}>{s.title}</h3>
+            <p style={{fontSize:14,color:'rgba(255,255,255,0.45)',lineHeight:1.75}}>{s.desc}</p>
+          </div>
+        ))}
       </div>
-      {/* CTA inside */}
-      <div style={{textAlign:'center',marginTop:48}}>
-        <button onClick={onRegister} style={{padding:'15px 40px',borderRadius:12,background:`linear-gradient(135deg,${GOLD},#E8B84B)`,color:'#000',fontSize:15,fontWeight:800,border:'none',cursor:'pointer',boxShadow:`0 6px 24px ${GOLD}44`,transition:'all .25s'}} onMouseEnter={e=>e.target.style.transform='translateY(-2px)'} onMouseLeave={e=>e.target.style.transform=''}>Register Your Mill Now — It's Free</button>
+      <div style={{textAlign:'center',marginTop:56,position:'relative',zIndex:1}}>
+        <button onClick={onRegister} className="mp-cta-btn" style={{padding:'16px 44px',borderRadius:12,background:`linear-gradient(135deg,${GOLD},#E8B84B)`,color:'#000',fontSize:15,fontWeight:800,border:'none',cursor:'pointer',boxShadow:`0 8px 30px ${GOLD}55,0 2px 0 rgba(255,255,255,0.4) inset`}}>Register Your Mill Now — It's Free</button>
       </div>
     </Section>
 
     {/* ── WHO IT'S FOR ── */}
-    <Section bg={LGOLD} style={{padding:'80px 5%'}}>
+    <Section bg={LGOLD} style={{padding:'90px 5%'}}>
       <SectionTitle tag="Built For You" title="Who Uses MillPro?" sub="Designed for every person in a milling operation, from the owner to the operator."/>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:20,maxWidth:900,margin:'0 auto'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:24,maxWidth:980,margin:'0 auto'}}>
         {[
           { emoji:'👑', role:'Mill Owners', color:GOLD, points:['Full financial visibility','Approve or reject admin actions','Access all reports and exports','Manage all user accounts'] },
           { emoji:'💼', role:'Admin / Managers', color:GRN, points:['Record daily production batches','Log employee work and pay wages','Record sales and customer orders','Enter purchases and expenses'] },
           { emoji:'👷', role:'Supervisors', color:'#1255A0', points:['Real-time production view','See inventory levels','Monitor employee activity','Read-only — no accidental changes'] },
-        ].map((r,i)=><div key={i} style={{background:'#fff',borderRadius:16,padding:'28px 24px',border:`2px solid ${r.color}22`}}>
-          <div style={{fontSize:36,marginBottom:12}}>{r.emoji}</div>
-          <h3 style={{fontFamily:FH,fontSize:19,fontWeight:800,color:DARK,marginBottom:14}}>{r.role}</h3>
-          {r.points.map((p,j)=><div key={j} style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:8}}>
-            <span style={{color:r.color,fontWeight:700,fontSize:14,flexShrink:0,marginTop:1}}>✓</span>
-            <span style={{fontSize:13,color:'#5E6E5E',lineHeight:1.5}}>{p}</span>
-          </div>)}
-        </div>)}
+        ].map((r,i)=>(
+          <div key={i} className="mp-role-card"
+            style={{background:'#fff',borderRadius:22,padding:'32px 28px',border:`2px solid ${r.color}18`,position:'relative',overflow:'hidden'}}
+            onMouseMove={tilt3D} onMouseLeave={untilt}>
+            <div style={{position:'absolute',top:0,right:0,width:100,height:100,borderRadius:'50%',background:`radial-gradient(circle,${r.color}12,transparent 70%)`,pointerEvents:'none'}}/>
+            <div style={{fontSize:42,marginBottom:14,filter:`drop-shadow(0 4px 12px ${r.color}44)`}}>{r.emoji}</div>
+            <h3 style={{fontFamily:FH,fontSize:20,fontWeight:800,color:DARK,marginBottom:16}}>{r.role}</h3>
+            {r.points.map((p,j)=><div key={j} style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:10}}>
+              <span style={{width:20,height:20,borderRadius:'50%',background:`${r.color}15`,border:`1px solid ${r.color}30`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
+                <span style={{color:r.color,fontWeight:800,fontSize:11}}>✓</span>
+              </span>
+              <span style={{fontSize:13.5,color:'#5E6E5E',lineHeight:1.55}}>{p}</span>
+            </div>)}
+          </div>
+        ))}
       </div>
     </Section>
 
     {/* ── LIVE DEMO ── */}
-    <Section id="demo" bg={DARK2} style={{padding:'90px 5%'}}>
+    <Section id="demo" bg={DARK2} style={{padding:'100px 5%',position:'relative',overflow:'hidden'}}>
+      {/* animated mesh bg */}
+      <div style={{position:'absolute',inset:0,background:`conic-gradient(from 0deg at 50% 50%,${DARK2},${MID},${DARK2},${DARK},${DARK2})`,opacity:.6,pointerEvents:'none'}}/>
+      <div style={{position:'absolute',inset:0,backgroundImage:`linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px)`,backgroundSize:'50px 50px',pointerEvents:'none'}}/>
       <SectionTitle tag="See It Work" title="One Button. Real Database." sub="No login. No setup. Press the button and watch a production record appear in the database instantly." light/>
-      <div style={{maxWidth:600,margin:'0 auto',textAlign:'center'}}>
+      <div style={{maxWidth:640,margin:'0 auto',textAlign:'center',position:'relative',zIndex:1}}>
+        {/* Glowing orb behind button */}
+        <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:280,height:280,borderRadius:'50%',background:`radial-gradient(circle,${GOLD}20,transparent 70%)`,filter:'blur(30px)',pointerEvents:'none',animation:`mp3dPulse 3s ease infinite`}}/>
         <button
           onClick={logDemoActivity}
           disabled={demoLoading}
-          style={{padding:'20px 56px',borderRadius:14,background:demoLoading?'#555':`linear-gradient(135deg,${GOLD},#E8B84B)`,color:'#000',fontSize:17,fontWeight:800,border:'none',cursor:demoLoading?'not-allowed':'pointer',boxShadow:`0 8px 32px ${GOLD}44`,transition:'all .25s',letterSpacing:.3,width:'100%',maxWidth:380}}>
-          {demoLoading ? 'Logging…' : '🌽 Log Production Activity'}
+          className="mp-demo-btn"
+          style={{padding:'22px 60px',borderRadius:16,background:demoLoading?'rgba(80,80,80,0.6)':`linear-gradient(135deg,${GOLD},#E8B84B,${GOLD})`,backgroundSize:'200% auto',color:'#000',fontSize:18,fontWeight:800,border:'none',cursor:demoLoading?'not-allowed':'pointer',boxShadow:demoLoading?'none':`0 12px 40px ${GOLD}55,0 2px 0 rgba(255,255,255,0.35) inset`,letterSpacing:.3,width:'100%',maxWidth:400,position:'relative',animation:demoLoading?'none':`mp3dMesh 3s linear infinite`}}>
+          {demoLoading ? '⚙️ Logging to DB…' : '🌽 Log Production Activity'}
         </button>
 
         {demoError && (
-          <div style={{marginTop:16,padding:'12px 20px',borderRadius:10,background:'rgba(183,28,28,0.15)',border:'1px solid rgba(183,28,28,0.3)',color:'#ff8a80',fontSize:13,fontWeight:600}}>
+          <div style={{marginTop:20,padding:'14px 22px',borderRadius:12,background:'rgba(183,28,28,0.12)',border:'1px solid rgba(183,28,28,0.25)',color:'#ff8a80',fontSize:13,fontWeight:600,backdropFilter:'blur(8px)'}}>
             {demoError}
           </div>
         )}
 
         {demoResult && (
-          <div style={{marginTop:16,padding:'16px 20px',borderRadius:10,background:'rgba(36,117,41,0.15)',border:'1px solid rgba(36,117,41,0.3)',color:'#81c784',fontSize:14,fontWeight:600}}>
-            Saved to DB — Maize: <strong>{demoResult.maizeKg} kg</strong> → Flour: <strong>{demoResult.flourKg} kg</strong> · Efficiency: <strong>{demoResult.efficiency}%</strong>
+          <div style={{marginTop:20,padding:'18px 24px',borderRadius:12,background:'rgba(36,117,41,0.12)',border:'1px solid rgba(36,117,41,0.25)',color:'#81c784',fontSize:14,fontWeight:600,backdropFilter:'blur(8px)',animation:'mp3dSlideUp .4s ease'}}>
+            ✅ Saved to DB — Maize: <strong>{demoResult.maizeKg} kg</strong> → Flour: <strong>{demoResult.flourKg} kg</strong> · Efficiency: <strong style={{color:GOLD}}>{demoResult.efficiency}%</strong>
           </div>
         )}
 
         {demoLogs.length > 0 && (
-          <div style={{marginTop:28,borderRadius:12,overflow:'hidden',border:'1px solid rgba(255,255,255,0.08)'}}>
-            <div style={{background:'rgba(255,255,255,0.05)',padding:'10px 16px',fontSize:11,fontWeight:700,color:'rgba(255,255,255,0.4)',textTransform:'uppercase',letterSpacing:.8,display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',textAlign:'left'}}>
+          <div style={{marginTop:32,borderRadius:16,overflow:'hidden',border:'1px solid rgba(255,255,255,0.07)',backdropFilter:'blur(8px)',background:'rgba(255,255,255,0.02)'}}>
+            <div style={{background:'rgba(255,255,255,0.04)',padding:'12px 18px',fontSize:10,fontWeight:700,color:'rgba(255,255,255,0.35)',textTransform:'uppercase',letterSpacing:1.2,display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',textAlign:'left',borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
               <span>#</span><span>Maize (kg)</span><span>Flour (kg)</span><span>Efficiency</span>
             </div>
             {demoLogs.slice(0,5).map((l,i)=>(
-              <div key={l.id} style={{padding:'10px 16px',fontSize:13,display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',textAlign:'left',borderTop:'1px solid rgba(255,255,255,0.06)',background:i%2===0?'rgba(255,255,255,0.02)':'transparent',color:'rgba(255,255,255,0.75)'}}>
+              <div key={l.id} style={{padding:'11px 18px',fontSize:13.5,display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',textAlign:'left',borderTop:i>0?'1px solid rgba(255,255,255,0.04)':'none',background:i%2===0?'rgba(255,255,255,0.015)':'transparent',color:'rgba(255,255,255,0.7)',transition:'background .15s'}}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(201,150,30,0.06)'}
+                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?'rgba(255,255,255,0.015)':'transparent'}>
                 <span style={{color:GOLD,fontWeight:700}}>{i+1}</span>
                 <span>{l.maizeKg}</span>
                 <span>{l.flourKg}</span>
@@ -327,55 +465,59 @@ function MarketingPage({ onSignIn, onRegister }) {
           </div>
         )}
 
-        <p style={{marginTop:20,fontSize:12,color:'rgba(255,255,255,0.25)'}}>
+        <p style={{marginTop:22,fontSize:11.5,color:'rgba(255,255,255,0.2)',letterSpacing:.3}}>
           Each press writes a real record to PostgreSQL via the Express backend — no mock data.
         </p>
       </div>
     </Section>
 
     {/* ── ROADMAP ── */}
-    <Section id="roadmap" bg={CREAM} style={{padding:'90px 5%'}}>
+    <Section id="roadmap" bg={CREAM} style={{padding:'100px 5%'}}>
       <SectionTitle tag="What's Coming" title="The Future of MillPro" sub="We're constantly building. Here's what's on the horizon for milling companies across East Africa."/>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(270px,1fr))',gap:18,maxWidth:1100,margin:'0 auto'}}>
-        {roadmap.map((r,i)=><div key={i} style={{background:'#fff',borderRadius:14,padding:'22px 20px',border:'1px solid #E8E2D8',display:'flex',gap:14,alignItems:'flex-start'}}>
-          <div style={{fontSize:28,lineHeight:1,flexShrink:0}}>{r.icon}</div>
-          <div style={{flex:1}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-              <h4 style={{fontFamily:FH,fontSize:15,fontWeight:800,color:DARK}}>{r.title}</h4>
-              <span style={{fontSize:10,color:GOLD,fontWeight:700,background:`${GOLD}14`,padding:'2px 8px',borderRadius:10,whiteSpace:'nowrap'}}>{r.when}</span>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:20,maxWidth:1100,margin:'0 auto'}}>
+        {roadmap.map((r,i)=>(
+          <div key={i} className="mp-road-card" style={{background:'#fff',borderRadius:18,padding:'24px 22px',border:'1px solid #E8E2D8',display:'flex',gap:16,alignItems:'flex-start',position:'relative',overflow:'hidden'}}>
+            <div style={{position:'absolute',top:0,left:0,width:4,height:'100%',background:`linear-gradient(to bottom,${GOLD},${GRN})`,borderRadius:'18px 0 0 18px'}}/>
+            <div style={{fontSize:32,lineHeight:1,flexShrink:0,filter:'drop-shadow(0 2px 8px rgba(0,0,0,0.12))'}}>{r.icon}</div>
+            <div style={{flex:1}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                <h4 style={{fontFamily:FH,fontSize:15,fontWeight:800,color:DARK}}>{r.title}</h4>
+                <span style={{fontSize:9,color:GOLD,fontWeight:700,background:`${GOLD}12`,border:`1px solid ${GOLD}25`,padding:'3px 9px',borderRadius:12,whiteSpace:'nowrap'}}>{r.when}</span>
+              </div>
+              <p style={{fontSize:13,color:'#5E6E5E',lineHeight:1.65}}>{r.desc}</p>
             </div>
-            <p style={{fontSize:12.5,color:'#5E6E5E',lineHeight:1.6}}>{r.desc}</p>
           </div>
-        </div>)}
+        ))}
       </div>
     </Section>
 
     {/* ── FINAL CTA ── */}
-    <section style={{background:`linear-gradient(135deg,${GRN} 0%,#0F5214 100%)`,padding:'90px 5%',textAlign:'center',position:'relative',overflow:'hidden'}}>
-      <div style={{position:'absolute',top:'-30%',left:'-5%',width:500,height:500,borderRadius:'50%',background:'rgba(255,255,255,0.04)',pointerEvents:'none'}}/>
-      <div style={{position:'absolute',bottom:'-30%',right:'-5%',width:400,height:400,borderRadius:'50%',background:'rgba(255,255,255,0.04)',pointerEvents:'none'}}/>
+    <section style={{background:`linear-gradient(160deg,${GRN} 0%,#0F5214 50%,#092B0D 100%)`,padding:'100px 5%',textAlign:'center',position:'relative',overflow:'hidden'}}>
+      <div style={{position:'absolute',top:'-20%',left:'-5%',width:600,height:600,borderRadius:'50%',background:`radial-gradient(circle,rgba(255,255,255,0.05),transparent 70%)`,pointerEvents:'none',animation:'mp3dFloat 8s ease-in-out infinite'}}/>
+      <div style={{position:'absolute',bottom:'-20%',right:'-5%',width:500,height:500,borderRadius:'50%',background:`radial-gradient(circle,rgba(201,150,30,0.08),transparent 70%)`,pointerEvents:'none',animation:'mp3dFloat 10s ease-in-out infinite',animationDelay:'2s'}}/>
+      <div style={{position:'absolute',inset:0,backgroundImage:`linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px)`,backgroundSize:'60px 60px',pointerEvents:'none'}}/>
       <div style={{position:'relative',zIndex:1}}>
-        <div style={{fontSize:48,marginBottom:16}}>🌽</div>
-        <h2 style={{fontFamily:FH,fontSize:'clamp(28px,4vw,46px)',fontWeight:900,color:'#fff',marginBottom:14,letterSpacing:-0.5}}>Ready to Transform Your Mill?</h2>
-        <p style={{fontSize:16,color:'rgba(255,255,255,0.7)',marginBottom:40,maxWidth:480,margin:'0 auto 40px',lineHeight:1.7}}>Join milling companies across East Africa who already use MillPro to run smarter, leaner operations.</p>
-        <div style={{display:'flex',gap:14,justifyContent:'center',flexWrap:'wrap'}}>
-          <button onClick={onRegister} style={{padding:'16px 40px',borderRadius:12,background:'#fff',color:GRN,fontSize:15,fontWeight:800,border:'none',cursor:'pointer',boxShadow:'0 6px 28px rgba(0,0,0,0.2)',transition:'all .25s'}} onMouseEnter={e=>e.target.style.transform='translateY(-2px)'} onMouseLeave={e=>e.target.style.transform=''}>Register Your Company →</button>
-          <button onClick={onSignIn} style={{padding:'16px 40px',borderRadius:12,background:'transparent',color:'#fff',fontSize:15,fontWeight:600,border:'2px solid rgba(255,255,255,0.4)',cursor:'pointer',transition:'all .25s'}} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.1)'} onMouseLeave={e=>e.target.style.background='transparent'}>Sign In</button>
+        <div style={{fontSize:56,marginBottom:18,filter:`drop-shadow(0 0 20px ${GOLD}88)`,animation:'mp3dPulse 3s ease infinite'}}>🌽</div>
+        <h2 style={{fontFamily:FH,fontSize:'clamp(28px,4vw,50px)',fontWeight:900,color:'#fff',marginBottom:16,letterSpacing:-0.5,textShadow:'0 4px 30px rgba(0,0,0,0.3)'}}>Ready to Transform Your Mill?</h2>
+        <p style={{fontSize:17,color:'rgba(255,255,255,0.6)',marginBottom:44,maxWidth:500,margin:'0 auto 44px',lineHeight:1.75}}>Join milling companies across East Africa who already use MillPro to run smarter, leaner operations.</p>
+        <div style={{display:'flex',gap:16,justifyContent:'center',flexWrap:'wrap'}}>
+          <button onClick={onRegister} className="mp-cta-btn" style={{padding:'17px 44px',borderRadius:12,background:'#fff',color:GRN,fontSize:15,fontWeight:800,border:'none',cursor:'pointer',boxShadow:'0 8px 32px rgba(0,0,0,0.25),0 2px 0 rgba(255,255,255,0.5) inset'}}>Register Your Company →</button>
+          <button onClick={onSignIn} style={{padding:'17px 44px',borderRadius:12,background:'rgba(255,255,255,0.07)',color:'rgba(255,255,255,0.85)',fontSize:15,fontWeight:600,border:'1px solid rgba(255,255,255,0.25)',cursor:'pointer',transition:'all .25s',backdropFilter:'blur(8px)'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.14)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.07)'}>Sign In</button>
         </div>
       </div>
     </section>
 
     {/* ── FOOTER ── */}
-    <footer style={{background:DARK,padding:'36px 5%',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:16}}>
+    <footer style={{background:'#040c05',padding:'40px 5%',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:16,borderTop:'1px solid rgba(255,255,255,0.05)'}}>
       <div style={{display:'flex',alignItems:'center',gap:10}}>
-        <span style={{fontSize:22}}>🌽</span>
-        <span style={{fontFamily:FH,fontSize:16,fontWeight:800,color:'#fff'}}>MillPro Enterprise</span>
-        <span style={{fontSize:11,color:'rgba(255,255,255,0.3)',marginLeft:4}}>v2.2</span>
+        <span style={{fontSize:24,filter:`drop-shadow(0 0 8px ${GOLD}66)`}}>🌽</span>
+        <span style={{fontFamily:FH,fontSize:17,fontWeight:800,color:'#fff'}}>MillPro Enterprise</span>
+        <span style={{fontSize:10,color:'rgba(255,255,255,0.25)',marginLeft:4}}>v2.2</span>
       </div>
-      <div style={{fontSize:12,color:'rgba(255,255,255,0.3)'}}>© {new Date().getFullYear()} MillPro Enterprise. Built for East African Milling.</div>
-      <div style={{display:'flex',gap:20}}>
-        <button onClick={onSignIn} style={{background:'none',border:'none',color:'rgba(255,255,255,0.4)',cursor:'pointer',fontSize:12,fontWeight:500,transition:'color .2s'}} onMouseEnter={e=>e.target.style.color='#fff'} onMouseLeave={e=>e.target.style.color='rgba(255,255,255,0.4)'}>Sign In</button>
-        <button onClick={onRegister} style={{background:'none',border:'none',color:GOLD,cursor:'pointer',fontSize:12,fontWeight:700}} >Get Started</button>
+      <div style={{fontSize:12,color:'rgba(255,255,255,0.25)',letterSpacing:.3}}>© {new Date().getFullYear()} MillPro Enterprise. Built for East African Milling.</div>
+      <div style={{display:'flex',gap:22}}>
+        <button onClick={onSignIn} style={{background:'none',border:'none',color:'rgba(255,255,255,0.35)',cursor:'pointer',fontSize:12,fontWeight:500,transition:'color .2s'}} onMouseEnter={e=>e.target.style.color='#fff'} onMouseLeave={e=>e.target.style.color='rgba(255,255,255,0.35)'}>Sign In</button>
+        <button onClick={onRegister} style={{background:'none',border:'none',color:GOLD,cursor:'pointer',fontSize:12,fontWeight:700,transition:'opacity .2s'}} onMouseEnter={e=>e.target.style.opacity='.7'} onMouseLeave={e=>e.target.style.opacity='1'}>Get Started</button>
       </div>
     </footer>
   </div>;
