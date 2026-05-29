@@ -8,21 +8,31 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach JWT token to every request
+// Attach JWT token to every request — uses super-admin token when on /super
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('millpro_token');
+  const isSuper = (config.url || '').startsWith('/super');
+  const token = isSuper
+    ? localStorage.getItem('millpro_super_token')
+    : localStorage.getItem('millpro_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Handle 401 → redirect to login
+// Handle 401 → redirect to appropriate login
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('millpro_token');
-      localStorage.removeItem('millpro_user');
-      window.location.href = '/';
+      const url = err.config?.url || '';
+      if (url.startsWith('/super')) {
+        localStorage.removeItem('millpro_super_token');
+        localStorage.removeItem('millpro_super_admin');
+        if (window.location.pathname.startsWith('/super')) window.location.href = '/super';
+      } else {
+        localStorage.removeItem('millpro_token');
+        localStorage.removeItem('millpro_user');
+        if (!window.location.pathname.startsWith('/super')) window.location.href = '/';
+      }
     }
     return Promise.reject(err);
   }
@@ -172,6 +182,60 @@ export const reportsAPI = {
   customers: () => api.get('/reports/customers'),
   employees: () => api.get('/reports/employees'),
   expenses:  (params) => api.get('/reports/expenses', { params }),
+};
+
+// ── AI Advisor (Claude) ──
+export const aiAPI = {
+  suggestions: ()      => api.get('/ai/suggestions'),
+  snapshot:    ()      => api.get('/ai/snapshot'),
+  chat:        (data)  => api.post('/ai/chat', data, { timeout: 60000 }),
+  weeklyReport:()      => api.post('/ai/report/weekly', {}, { timeout: 90000 }),
+};
+
+// ── Feedback (company → MillPro) ──
+export const feedbackAPI = {
+  list:   ()      => api.get('/feedback'),
+  create: (data)  => api.post('/feedback', data),
+  delete: (id)    => api.delete(`/feedback/${id}`),
+};
+
+// ── Invoices ──
+export const invoicesAPI = {
+  list:   ()      => api.get('/invoices'),
+  get:    (id)    => api.get(`/invoices/${id}`),
+  create: (data)  => api.post('/invoices', data),
+  delete: (id)    => api.delete(`/invoices/${id}`),
+};
+
+// ── Maize News (Claude web search, cached) ──
+export const newsAPI = {
+  list:    (refresh) => api.get('/news', { params: refresh ? { refresh: 1 } : {}, timeout: 90000 }),
+};
+
+// ── Community feed (posts / comments / reactions) ──
+export const communityAPI = {
+  list:      ()           => api.get('/community/posts'),
+  create:    (data)       => api.post('/community/posts', data),
+  delete:    (id)         => api.delete(`/community/posts/${id}`),
+  react:     (id, emoji)  => api.post(`/community/posts/${id}/react`, { emoji }),
+  comment:   (id, body)   => api.post(`/community/posts/${id}/comments`, { body }),
+  delComment:(id)         => api.delete(`/community/comments/${id}`),
+};
+
+// ── Super Admin (MillPro platform team) ──
+export const superAPI = {
+  login:           (data) => api.post('/super/login', data),
+  me:              ()     => api.get('/super/me'),
+  changePassword:  (data) => api.put('/super/me/password', data),
+  overview:        ()     => api.get('/super/overview'),
+  listCompanies:   (params) => api.get('/super/companies', { params }),
+  getCompany:      (id)   => api.get(`/super/companies/${id}`),
+  createCompany:   (data) => api.post('/super/companies', data),
+  setStatus:       (id, status, reason) => api.patch(`/super/companies/${id}/status`, { status, reason }),
+  deleteCompany:   (id)   => api.delete(`/super/companies/${id}`),
+  resetUserPassword: (userId, newPassword) => api.post(`/super/users/${userId}/reset-password`, { newPassword }),
+  listFeedback:    (params) => api.get('/super/feedback', { params }),
+  updateFeedback:  (id, data) => api.patch(`/super/feedback/${id}`, data),
 };
 
 export default api;

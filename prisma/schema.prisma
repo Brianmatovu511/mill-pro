@@ -11,30 +11,35 @@ datasource db {
 // COMPANY (Multi-tenant)
 // ═══════════════════════════════════
 model Company {
-  id          String   @id @default(uuid())
-  code        String?  @unique
-  name        String
-  phone       String?
-  address     String?
-  currency    String   @default("UGX")
-  logo        String?  @default("🌽")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id            String    @id @default(uuid())
+  code          String?   @unique
+  name          String
+  phone         String?
+  address       String?
+  currency      String    @default("UGX")
+  logo          String?   @default("🌽")
+  status        String    @default("ACTIVE") // ACTIVE | BLOCKED
+  blockedAt     DateTime? @map("blocked_at")
+  blockedReason String?   @map("blocked_reason")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  users       User[]
-  employees   Employee[]
-  taskTypes   TaskType[]
-  workLogs    WorkLog[]
-  payments    Payment[]
-  batches     ProductionBatch[]
-  purchases   Purchase[]
-  expenses    Expense[]
-  sales       Sale[]
-  orders      Order[]
-  customers   Customer[]
+  users          User[]
+  employees      Employee[]
+  taskTypes      TaskType[]
+  workLogs       WorkLog[]
+  payments       Payment[]
+  batches        ProductionBatch[]
+  purchases      Purchase[]
+  expenses       Expense[]
+  sales          Sale[]
+  orders         Order[]
+  customers      Customer[]
   stockAdj       StockAdjustment[]
   auditLogs      AuditLog[]
   pendingActions PendingAction[]
+  feedback       Feedback[]
+  Invoice        Invoice[]
 
   @@map("companies")
 }
@@ -55,10 +60,10 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  company          Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  auditLogs        AuditLog[]
-  pendingRequests  PendingAction[] @relation("PendingRequester")
-  pendingReviews   PendingAction[] @relation("PendingReviewer")
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  auditLogs       AuditLog[]
+  pendingRequests PendingAction[] @relation("PendingRequester")
+  pendingReviews  PendingAction[] @relation("PendingReviewer")
 
   @@unique([email, companyId])
   @@index([companyId])
@@ -95,13 +100,13 @@ model Employee {
 // TASK TYPES
 // ═══════════════════════════════════
 model TaskType {
-  id         String  @id @default(uuid())
-  companyId  String  @map("company_id")
+  id         String   @id @default(uuid())
+  companyId  String   @map("company_id")
   name       String
-  payMode    PayMode @default(PER_UNIT) @map("pay_mode")
-  rate       Float   @default(0)
-  nightBonus Float   @default(0) @map("night_bonus")
-  active     Boolean @default(true)
+  payMode    PayMode  @default(PER_UNIT) @map("pay_mode")
+  rate       Float    @default(0)
+  nightBonus Float    @default(0) @map("night_bonus")
+  active     Boolean  @default(true)
   createdAt  DateTime @default(now()) @map("created_at")
 
   company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -174,21 +179,21 @@ enum PaymentType {
 // PRODUCTION BATCHES
 // ═══════════════════════════════════
 model ProductionBatch {
-  id           String   @id @default(uuid())
-  companyId    String   @map("company_id")
-  batchNumber  String?  @map("batch_number")
-  date         DateTime @db.Date
-  maizeIn      Float    @default(0) @map("maize_in")
-  flourOut     Float    @default(0) @map("flour_out")
-  branOut      Float    @default(0) @map("bran_out")
-  wasteKg      Float    @default(0) @map("waste_kg")
-  shift        String   @default("Day")
-  machine      String?
-  fuelCost     Float    @default(0) @map("fuel_cost")
-  packagingUsed Float   @default(0) @map("packaging_used")
-  notes        String?
-  createdBy    String?  @map("created_by")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id            String   @id @default(uuid())
+  companyId     String   @map("company_id")
+  batchNumber   String?  @map("batch_number")
+  date          DateTime @db.Date
+  maizeIn       Float    @default(0) @map("maize_in")
+  flourOut      Float    @default(0) @map("flour_out")
+  branOut       Float    @default(0) @map("bran_out")
+  wasteKg       Float    @default(0) @map("waste_kg")
+  shift         String   @default("Day")
+  machine       String?
+  fuelCost      Float    @default(0) @map("fuel_cost")
+  packagingUsed Float    @default(0) @map("packaging_used")
+  notes         String?
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
@@ -273,9 +278,9 @@ model Sale {
   createdBy  String?  @map("created_by")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  customerRel Customer? @relation(fields: [customerId], references: [id])
-  items      SaleItem[]
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customerRel Customer?  @relation(fields: [customerId], references: [id])
+  items       SaleItem[]
 
   @@map("sales")
 }
@@ -355,8 +360,8 @@ model PendingAction {
   id          String    @id @default(uuid())
   companyId   String    @map("company_id")
   requestedBy String    @map("requested_by")
-  action      String    // EDIT | DELETE
-  entity      String    // Employee, Sale, WorkLog, etc.
+  action      String // EDIT | DELETE
+  entity      String // Employee, Sale, WorkLog, etc.
   entityId    String    @map("entity_id")
   entityData  Json?     @map("entity_data")
   entityLabel String?   @map("entity_label")
@@ -377,16 +382,60 @@ model PendingAction {
 // MILL ACTIVITY LOG (INCO Demo — public)
 // ═══════════════════════════════════
 model MillActivityLog {
-  id          String   @id @default(uuid())
-  activity    String   @default("production_check")
-  flourKg     Float
-  maizeKg     Float
-  efficiency  Float
-  notes       String?
-  createdAt   DateTime @default(now()) @map("created_at")
+  id         String   @id @default(uuid())
+  activity   String   @default("production_check")
+  flourKg    Float
+  maizeKg    Float
+  efficiency Float
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
 
   @@index([createdAt])
   @@map("mill_activity_logs")
+}
+
+// ═══════════════════════════════════
+// SUPER ADMIN (MillPro platform team)
+// ═══════════════════════════════════
+model SuperAdmin {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  active       Boolean   @default(true)
+  lastLogin    DateTime? @map("last_login")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  feedbackResponses Feedback[] @relation("FeedbackResponder")
+
+  @@map("super_admins")
+}
+
+// ═══════════════════════════════════
+// FEEDBACK (companies → MillPro team)
+// ═══════════════════════════════════
+model Feedback {
+  id          String    @id @default(uuid())
+  companyId   String    @map("company_id")
+  userId      String?   @map("user_id")
+  userName    String    @map("user_name")
+  userRole    String    @map("user_role")
+  category    String    @default("GENERAL") // GENERAL | BUG | FEATURE_REQUEST | COMPLAINT | OTHER
+  subject     String
+  message     String
+  status      String    @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED | DISMISSED
+  response    String?
+  respondedAt DateTime? @map("responded_at")
+  respondedBy String?   @map("responded_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  responder SuperAdmin? @relation("FeedbackResponder", fields: [respondedBy], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([status])
+  @@map("feedback")
 }
 
 // ═══════════════════════════════════
@@ -408,4 +457,91 @@ model AuditLog {
 
   @@index([companyId, createdAt])
   @@map("audit_logs")
+}
+
+// ═══════════════════════════════════
+// INVOICES
+// ═══════════════════════════════════
+model Invoice {
+  id              String    @id @default(uuid())
+  companyId       String    @map("company_id")
+  invoiceNo       String    @unique @map("invoice_no")
+  customer        String
+  customerPhone   String?   @map("customer_phone")
+  customerAddress String?   @map("customer_address")
+  date            DateTime  @db.Date
+  dueDate         DateTime? @map("due_date") @db.Date
+  status          String    @default("UNPAID") // UNPAID | PAID | OVERDUE
+  taxRate         Float     @default(0) @map("tax_rate")
+  subtotal        Float     @default(0)
+  total           Float     @default(0)
+  notes           String?
+  createdBy       String?   @map("created_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items   InvoiceItem[]
+
+  @@index([companyId, createdAt])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String @id @default(uuid())
+  invoiceId   String @map("invoice_id")
+  description String @default("Item")
+  quantity    Float  @default(0)
+  unitPrice   Float  @default(0) @map("unit_price")
+  lineTotal   Float  @default(0) @map("line_total")
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+// ═══════════════════════════════════
+// COMMUNITY FEED (cross-company miller network)
+// ═══════════════════════════════════
+model Post {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  companyId   String   @map("company_id")
+  userName    String   @map("user_name")
+  userRole    String   @map("user_role")
+  companyName String?  @map("company_name")
+  body        String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  comments  PostComment[]
+  reactions PostReaction[]
+
+  @@index([createdAt])
+  @@map("posts")
+}
+
+model PostComment {
+  id        String   @id @default(uuid())
+  postId    String   @map("post_id")
+  userId    String   @map("user_id")
+  userName  String   @map("user_name")
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@map("post_comments")
+}
+
+model PostReaction {
+  id        String   @id @default(uuid())
+  postId    String   @map("post_id")
+  userId    String   @map("user_id")
+  emoji     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("post_reactions")
 }

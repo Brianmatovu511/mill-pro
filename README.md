@@ -4,7 +4,7 @@
 
 ### The Complete Management System for Modern Milling Companies
 
-[![CI/CD](https://github.com/Brianmatovu511/millpro-v2/actions/workflows/ci.yml/badge.svg)](https://github.com/Brianmatovu511/millpro-v2/actions)
+[![CI/CD](https://github.com/Brianmatovu511/mill-pro/actions/workflows/ci.yml/badge.svg)](https://github.com/Brianmatovu511/mill-pro/actions)
 [![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?style=flat-square&logo=node.js)](https://nodejs.org)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react)](https://reactjs.org)
 [![Prisma](https://img.shields.io/badge/Prisma-5-2D3748?style=flat-square&logo=prisma)](https://prisma.io)
@@ -34,6 +34,7 @@ Purpose-built for grain and maize milling companies across East Africa.
 | **CSV & Print Export** | Export any table — work logs, finance, payroll, sales, inventory |
 | **Company Codes** | Private login — companies identified by unique 6-char code |
 | **Audit Log** | Full trail of every action taken in the system |
+| **MillPro AI Advisor** | Claude-powered assistant — ask plain-language questions about production, sales, payroll & finance and get instant insights, summaries and recommendations |
 
 ---
 
@@ -50,14 +51,16 @@ Purpose-built for grain and maize milling companies across East Africa.
 | CI/CD | GitHub Actions — lint → test → Docker build |
 | Container | Docker multi-stage build + Docker Compose |
 | Security | Helmet, rate limiting, express-validator |
+| AI Advisor | Anthropic Claude API via `@anthropic-ai/sdk` (Haiku + Sonnet) |
+| Machine Learning | MillPro proprietary forecasting model *(in development)* |
 
 ---
 
 ## Quick Start — Docker (One Command)
 
 ```bash
-git clone https://github.com/Brianmatovu511/millpro-v2.git
-cd millpro-v2
+git clone https://github.com/Brianmatovu511/mill-pro.git
+cd mill-pro
 docker compose up --build
 ```
 
@@ -118,7 +121,7 @@ Open [http://localhost:5173](http://localhost:5173) and sign in with code `JGM00
 ## Project Structure
 
 ```
-millpro-v2/
+mill-pro/
 ├── .devcontainer/
 │   └── devcontainer.json        # GitHub Codespaces auto-config
 ├── .github/workflows/
@@ -142,6 +145,7 @@ millpro-v2/
 │   ├── routes/
 │   │   ├── demo.js              # Public one-button demo endpoint
 │   │   ├── fhir.js              # FHIR R4 Observation API (INCO)
+│   │   ├── ai.js                # MillPro AI Advisor (Anthropic Claude API)
 │   │   └── ...                  # All business routes
 │   └── utils/
 │       └── logger.js            # Winston structured logging
@@ -225,13 +229,34 @@ The system is designed and evaluated against nine quality dimensions used throug
 
 ---
 
+## AI & Machine Learning
+
+MillPro pairs a **shipped, Claude-powered assistant** with a **proprietary ML model under active development**. The two tracks are deliberate and complementary: the Advisor reasons over live business data through a hosted LLM today, while the in-house model is being trained for domain-specific forecasting MillPro fully owns.
+
+### 1. MillPro AI Advisor — *live*
+
+Built by **Brian** on the **Anthropic Claude API** (`@anthropic-ai/sdk`). It lets any authorised user ask plain-language questions — *"How did flour output trend this month?"*, *"Which customer owes the most?"*, *"Summarise this week's payroll"* — and returns grounded answers drawn from the company's own production, sales, inventory and finance records.
+
+- Backed by Claude Haiku (fast, low-cost) and Claude Sonnet (deeper reasoning), selected per query in `server/routes/ai.js`.
+- The API key is read from `ANTHROPIC_API_KEY` in the environment — **never hardcoded**. If it is unset, the AI endpoints degrade gracefully with a "not configured" message instead of crashing.
+- Multi-tenant safe: the Advisor only ever sees records belonging to the requesting company.
+
+### 2. MillPro Forecasting Model — *in development*
+
+Led by **Emily (Babirye Nambuusi)**, MillPro is training its **own machine-learning model** on the platform's historical milling, sales and inventory data — for forecasting and operational insight (e.g. yield and demand prediction) rather than relying solely on a third-party LLM. This is the team's path to AI tuned to the realities of East African grain milling and owned end-to-end by MillPro.
+
+> **Advisor vs. Model:** the Claude-powered Advisor answers questions in natural language *today*; the proprietary model is being built to make quantitative predictions MillPro fully controls.
+
+---
+
 ## How Our Team Collaborates with AI Agents
 
 ### Team Composition
 
 | Member | Role | Responsibilities |
 |--------|------|-----------------|
-| **Brian** | Backend Engineer | API design, database schema, server infrastructure, DevOps, CI/CD pipeline, Docker, FHIR integration, security middleware |
+| **Brian** | Backend & AI Engineer | API design, database schema, server infrastructure, DevOps, CI/CD pipeline, Docker, FHIR integration, security middleware — and the **MillPro AI Advisor** built on the Anthropic Claude API |
+| **Emily** (Babirye Nambuusi) | Machine Learning Engineer | MillPro's **proprietary forecasting model** — data collection & cleaning, feature engineering, model training, evaluation, and integration into the platform |
 | **Rebecca** | Frontend Engineer | React components, UI/UX design, demo page, Vite build pipeline, frontend data visualisation |
 | **Aamna** | Business Analyst | Requirements analysis, use-case definition, FHIR standards research, mapping professor rubric to acceptance criteria, stakeholder documentation |
 | **Pious** | Product Manager | Project roadmap, feature prioritisation, team coordination, presentation preparation, final sign-off on each milestone |
@@ -239,7 +264,8 @@ The system is designed and evaluated against nine quality dimensions used throug
 ### Human vs AI Responsibilities
 
 **What humans own:**
-- **Brian** defines the backend architecture and reviews every server-side pull request before it merges. He decides what the AI scaffolds are allowed to generate and where the boundaries are.
+- **Brian** defines the backend architecture and reviews every server-side pull request before it merges. He decides what the AI scaffolds are allowed to generate and where the boundaries are, and he owns the **MillPro AI Advisor** integration on the Claude API.
+- **Emily** owns the **proprietary ML model** end-to-end — she decides what data the model trains on, how it is validated, and what it is (and is not) allowed to predict before any forecast is surfaced to users.
 - **Rebecca** owns all frontend merges. She uses AI to accelerate component generation but manually reviews every rendered result for design consistency and correctness.
 - **Aamna** translates the professor's rubric and FHIR standards into concrete acceptance criteria. She ensures the team builds the right thing — not just something that runs.
 - **Pious** tracks progress against the INCO evaluation table above, coordinates across the IT and business sides, and runs the final check before any feature is marked done.
@@ -261,7 +287,7 @@ The system is designed and evaluated against nine quality dimensions used throug
 ### Keeping the Whole Team Moving in the Right Direction
 
 - **The professor's rubric is the single source of truth.** Aamna maintains the "Development Checklist" table above, mapping every rubric point to a specific file or test. No feature is "done" until that row is green.
-- **GitHub is the coordination layer.** Every change goes through a pull request. Brian, Rebecca, Aamna, and Pious all receive PR notifications. If the CI badge is red, the whole team stops and fixes it before adding anything new.
+- **GitHub is the coordination layer.** Every change goes through a pull request. Brian, Emily, Rebecca, Aamna, and Pious all receive PR notifications. If the CI badge is red, the whole team stops and fixes it before adding anything new.
 - **AI agents are given scope, not autonomy.** Agents scaffold and suggest; humans approve and merge. If an agent generates code that technically runs but violates the FHIR schema or the professor's architecture requirements, the human reviewer catches it at PR time.
 - **Weekly 15-minute sync:** Pious chairs a standup where each person reports what the CI pipeline and the checklist table show — not what they think is done. This grounds the meeting in observable facts rather than assumptions.
 

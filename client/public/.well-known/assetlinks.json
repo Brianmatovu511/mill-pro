@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "systems.millpro.app",
+      "sha256_cert_fingerprints": ["9D:0F:A9:39:39:40:E9:B4:2E:3F:9E:8E:D0:BE:86:D5:64:E9:A3:F1:37:FB:15:92:89:AC:D9:5D:CC:FE:CD:09"]
+    }
+  }
+]

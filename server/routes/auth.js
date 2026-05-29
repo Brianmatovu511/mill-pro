@@ -37,9 +37,10 @@ router.get('/lookup', async (req, res) => {
 
     const company = await prisma.company.findUnique({
       where: { code: code.toUpperCase().trim() },
-      select: { id: true, name: true, code: true, currency: true },
+      select: { id: true, name: true, code: true, currency: true, status: true },
     });
     if (!company) return res.status(404).json({ error: 'No company found with that code. Please check and try again.' });
+    if (company.status === 'BLOCKED') return res.status(403).json({ error: 'This company has been suspended. Please contact MillPro support.' });
 
     const users = await prisma.user.findMany({
       where: { companyId: company.id, active: true },
@@ -131,6 +132,7 @@ router.post('/login', async (req, res) => {
     const where = userId ? { id: userId, active: true } : { email, active: true };
     const user = await prisma.user.findFirst({ where, include: { company: true } });
     if (!user) return res.status(401).json({ error: 'User not found or account is inactive' });
+    if (user.company.status === 'BLOCKED') return res.status(403).json({ error: 'This company has been suspended. Please contact MillPro support.' });
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return res.status(401).json({ error: 'Incorrect password' });

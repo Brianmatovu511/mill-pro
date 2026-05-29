@@ -8,3 +8,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>
 );
+
+// Register the service worker so the site is installable as a PWA.
+// The SW is currently a passthrough; offline behaviour lives behind a future flag.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(err => {
+      console.warn("SW registration failed:", err);
+    });
+  });
+}

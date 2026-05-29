@@ -9,10 +9,10 @@ client/dist/
 .env
 .env.*
 !.env.example
-!.env.staging
-!.env.production
 *.pem
 *.key
+*.crt
+*.csr
 
 # ── Prisma ──
 prisma/migrations/
@@ -39,6 +39,9 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+*.bak
+*.bak.*
+**/dist.bak.*/
 
 # ── Runtime ──
 .pm2/

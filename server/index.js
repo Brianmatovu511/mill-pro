@@ -12,6 +12,10 @@ const { errorHandler } = require('./middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust the first reverse proxy (nginx) so req.ip and X-Forwarded-For
+// resolve to the real client — required for accurate rate limiting.
+app.set('trust proxy', 1);
+
 // Security & compression
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(compression());
@@ -72,6 +76,12 @@ app.use('/api/reports',          require('./routes/reports'));
 app.use('/api/pending',          require('./routes/pending'));
 app.use('/api/fhir',             require('./routes/fhir'));
 app.use('/api/demo',             require('./routes/demo'));
+app.use('/api/super',            require('./routes/super'));
+app.use('/api/feedback',         require('./routes/feedback'));
+app.use('/api/ai',               require('./routes/ai'));
+app.use('/api/invoices',         require('./routes/invoices'));
+app.use('/api/community',        require('./routes/community'));
+app.use('/api/news',             require('./routes/news'));
 
 // Serve React in production
 if (process.env.NODE_ENV === 'production') {
@@ -82,8 +92,10 @@ if (process.env.NODE_ENV === 'production') {
 // Centralized error handler (must be last)
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+const { ensureSuperAdmin } = require('./utils/superSeed');
+app.listen(PORT, async () => {
   logger.info(`MillPro Enterprise started`, { port: PORT, env: process.env.NODE_ENV || 'development' });
+  await ensureSuperAdmin();
 });
 
 module.exports = app;
