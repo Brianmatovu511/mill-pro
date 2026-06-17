@@ -4,30 +4,8 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../db');
 const { logAudit } = require('../utils/audit');
 const { authenticate } = require('../middleware/auth');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'change-this-in-production';
-const JWT_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
-
-// Generate a unique 6-char company code (uppercase alphanumeric, no confusing chars)
-const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const genCode = () => Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
-
-const ensureUniqueCode = async (requested) => {
-  if (requested) {
-    const clean = requested.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-    if (clean.length < 3) throw new Error('Company code must be at least 3 characters');
-    const exists = await prisma.company.findUnique({ where: { code: clean } });
-    if (exists) throw new Error('That company code is already taken — choose another');
-    return clean;
-  }
-  // Auto-generate unique code
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const code = genCode();
-    const exists = await prisma.company.findUnique({ where: { code } });
-    if (!exists) return code;
-  }
-  throw new Error('Could not generate a unique code — please try again');
-};
+const { ensureUniqueCode } = require('../utils/companyCode');
+const { jwt: jwtConfig, bcryptRounds } = require('../config');
 
 // Lookup company by code (used on login landing)
 router.get('/lookup', async (req, res) => {
@@ -88,11 +66,11 @@ router.post('/register', async (req, res) => {
         data: { code, name: companyName, phone: companyPhone, address: companyAddress, currency: currency || 'UGX' },
       });
       const owner = await tx.user.create({
-        data: { companyId: company.id, name: ownerName, email: ownerEmail, passwordHash: await bcrypt.hash(ownerPassword, 12), role: 'OWNER' },
+        data: { companyId: company.id, name: ownerName, email: ownerEmail, passwordHash: await bcrypt.hash(ownerPassword, bcryptRounds), role: 'OWNER' },
       });
       if (adminName && adminPassword && adminPassword.length >= 8) {
         await tx.user.create({
-          data: { companyId: company.id, name: adminName, email: adminEmail, passwordHash: await bcrypt.hash(adminPassword, 12), role: 'ADMIN' },
+          data: { companyId: company.id, name: adminName, email: adminEmail, passwordHash: await bcrypt.hash(adminPassword, bcryptRounds), role: 'ADMIN' },
         });
       }
       await tx.taskType.createMany({ data: [
@@ -139,7 +117,7 @@ router.post('/login', async (req, res) => {
 
     await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
 
-    const token = jwt.sign({ userId: user.id, companyId: user.companyId, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const token = jwt.sign({ userId: user.id, companyId: user.companyId, role: user.role }, jwtConfig.secret, { expiresIn: jwtConfig.expiresIn });
     await logAudit(user.companyId, user.id, 'LOGIN', 'Session', null, 'Password login', req.ip);
 
     res.json({

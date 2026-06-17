@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
+const { dateRangeWhere } = require('../utils/query');
 
 // Monthly summary — last 6 months
 router.get('/monthly', authenticate, async (req, res) => {
@@ -89,10 +90,7 @@ router.get('/expenses', authenticate, async (req, res) => {
   try {
     const cid = req.companyId;
     const { from, to } = req.query;
-    const df = {};
-    if (from) df.gte = new Date(from);
-    if (to)   df.lte = new Date(to);
-    const w = from || to ? { date: df } : {};
+    const w = dateRangeWhere(from, to);
     const rows = await prisma.expense.groupBy({
       by: ['category'],
       where: { companyId: cid, ...w },

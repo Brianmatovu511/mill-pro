@@ -1,12 +1,12 @@
 const jwt = require('jsonwebtoken');
 const prisma = require('../db');
-const JWT_SECRET = process.env.JWT_SECRET || 'change-this';
+const { jwt: jwtConfig } = require('../config');
 
 const authenticate = async (req, res, next) => {
   try {
     const header = req.headers.authorization;
     if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Authentication required' });
-    const decoded = jwt.verify(header.split(' ')[1], JWT_SECRET);
+    const decoded = jwt.verify(header.split(' ')[1], jwtConfig.secret);
     const user = await prisma.user.findUnique({ where: { id: decoded.userId }, include: { company: true } });
     if (!user?.active) return res.status(401).json({ error: 'Account inactive' });
     req.user = user;

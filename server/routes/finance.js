@@ -1,10 +1,10 @@
 const router = require('express').Router();
 const prisma = require('../db');
 const { authenticate, authorize } = require('../middleware/auth');
+const { dateRangeWhere } = require('../utils/query');
 router.get('/', authenticate, authorize('OWNER','ADMIN'), async (req, res) => { try {
   const { from, to } = req.query; const cid = req.companyId;
-  const df = {}; if(from) df.gte = new Date(from); if(to) df.lte = new Date(to);
-  const w = from||to ? { date:df } : {};
+  const w = dateRangeWhere(from, to);
   const [sa,pa,ea,pya,ba,ebc] = await Promise.all([
     prisma.sale.aggregate({ where: { companyId:cid, ...w }, _sum: { total:true } }),
     prisma.purchase.aggregate({ where: { companyId:cid, ...w }, _sum: { totalCost:true } }),
