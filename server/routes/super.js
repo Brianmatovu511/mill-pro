@@ -4,26 +4,8 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../db');
 const { requireSuperAdmin } = require('../middleware/superAuth');
 const logger = require('../utils/logger');
-
-const JWT_SECRET  = process.env.JWT_SECRET || 'change-this-in-production';
-const JWT_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
-
-const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const genCode = () => Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
-const ensureUniqueCode = async (requested) => {
-  if (requested) {
-    const clean = requested.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-    if (clean.length < 3) throw new Error('Company code must be at least 3 characters');
-    const exists = await prisma.company.findUnique({ where: { code: clean } });
-    if (exists) throw new Error('That company code is already taken');
-    return clean;
-  }
-  for (let i = 0; i < 20; i++) {
-    const code = genCode();
-    if (!(await prisma.company.findUnique({ where: { code } }))) return code;
-  }
-  throw new Error('Could not generate a unique code — please try again');
-};
+const { ensureUniqueCode } = require('../utils/companyCode');
+const { jwt: jwtConfig, bcryptRounds } = require('../config');
 
 // ─── Auth ─────────────────────────────────────────
 router.post('/login', async (req, res) => {
@@ -35,7 +17,7 @@ router.post('/login', async (req, res) => {
     const ok = await bcrypt.compare(password, admin.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
     await prisma.superAdmin.update({ where: { id: admin.id }, data: { lastLogin: new Date() } });
-    const token = jwt.sign({ adminId: admin.id, type: 'super' }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const token = jwt.sign({ adminId: admin.id, type: 'super' }, jwtConfig.secret, { expiresIn: jwtConfig.expiresIn });
     res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email } });
   } catch (err) {
     logger.error('Super login failed', { error: err.message });
@@ -54,7 +36,7 @@ router.put('/me/password', requireSuperAdmin, async (req, res) => {
     return res.status(400).json({ error: 'New password must be at least 8 characters' });
   const ok = await bcrypt.compare(currentPassword, req.superAdmin.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Current password is incorrect' });
-  await prisma.superAdmin.update({ where: { id: req.superAdmin.id }, data: { passwordHash: await bcrypt.hash(newPassword, 12) } });
+  await prisma.superAdmin.update({ where: { id: req.superAdmin.id }, data: { passwordHash: await bcrypt.hash(newPassword, bcryptRounds) } });
   res.json({ ok: true });
 });
 
@@ -153,11 +135,11 @@ router.post('/companies', requireSuperAdmin, async (req, res) => {
         data: { code, name: companyName, phone: companyPhone, address: companyAddress, currency: currency || 'UGX' },
       });
       await tx.user.create({
-        data: { companyId: company.id, name: ownerName, email: ownerEmail, passwordHash: await bcrypt.hash(ownerPassword, 12), role: 'OWNER' },
+        data: { companyId: company.id, name: ownerName, email: ownerEmail, passwordHash: await bcrypt.hash(ownerPassword, bcryptRounds), role: 'OWNER' },
       });
       if (adminName && adminPassword && adminPassword.length >= 8) {
         await tx.user.create({
-          data: { companyId: company.id, name: adminName, email: adminEmail, passwordHash: await bcrypt.hash(adminPassword, 12), role: 'ADMIN' },
+          data: { companyId: company.id, name: adminName, email: adminEmail, passwordHash: await bcrypt.hash(adminPassword, bcryptRounds), role: 'ADMIN' },
         });
       }
       await tx.taskType.createMany({ data: [
@@ -216,7 +198,7 @@ router.post('/users/:id/reset-password', requireSuperAdmin, async (req, res) => 
     if (!newPassword || newPassword.length < 8) return res.status(400).json({ error: 'Password must be 8+ characters' });
     const user = await prisma.user.update({
       where: { id: req.params.id },
-      data: { passwordHash: await bcrypt.hash(newPassword, 12) },
+      data: { passwordHash: await bcrypt.hash(newPassword, bcryptRounds) },
       select: { id: true, name: true, email: true },
     });
     res.json({ ok: true, user });

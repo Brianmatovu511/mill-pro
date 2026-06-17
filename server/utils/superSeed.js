@@ -1,18 +1,17 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../db');
 const logger = require('./logger');
+const { superAdmin, bcryptRounds } = require('../config');
 
 async function ensureSuperAdmin() {
   try {
     const count = await prisma.superAdmin.count();
     if (count > 0) return;
 
-    const email    = process.env.SUPER_ADMIN_EMAIL    || 'admin@millpro.app';
-    const password = process.env.SUPER_ADMIN_PASSWORD || 'MillProAdmin@2026!';
-    const name     = process.env.SUPER_ADMIN_NAME     || 'MillPro Administrator';
+    const { email, password, name } = superAdmin;
 
     await prisma.superAdmin.create({
-      data: { name, email, passwordHash: await bcrypt.hash(password, 12) },
+      data: { name, email, passwordHash: await bcrypt.hash(password, bcryptRounds) },
     });
 
     logger.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

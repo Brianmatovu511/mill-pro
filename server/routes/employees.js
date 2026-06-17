@@ -3,6 +3,7 @@ const prisma = require('../db');
 const { authenticate, authorize } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 const { submitPending } = require('../utils/pending');
+const { dateRangeWhere } = require('../utils/query');
 
 router.get('/', authenticate, async (req, res) => { try { res.json(await prisma.employee.findMany({ where: { companyId: req.companyId }, orderBy: { name:'asc' } })); } catch { res.status(500).json({ error:'Failed' }); } });
 
@@ -18,6 +19,6 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   try { await prisma.employee.delete({ where: { id:req.params.id } }); res.json({ message:'Deleted' }); } catch { res.status(500).json({ error:'Failed' }); }
 });
 
-router.get('/:id/statement', authenticate, async (req, res) => { try { const { from, to } = req.query; const df = {}; if(from) df.gte = new Date(from); if(to) df.lte = new Date(to); const w = from||to ? { date:df } : {}; const [wl,py] = await Promise.all([prisma.workLog.findMany({ where: { employeeId:req.params.id, companyId:req.companyId, ...w }, include: { taskType: { select: { name:true } } }, orderBy: { date:'desc' } }), prisma.payment.findMany({ where: { employeeId:req.params.id, companyId:req.companyId, ...w }, orderBy: { date:'desc' } })]); const te=wl.reduce((s,x)=>s+x.totalPay,0), tp=py.reduce((s,x)=>s+x.amount,0); res.json({ workLogs:wl, payments:py, totalEarned:te, totalPaid:tp, balance:te-tp }); } catch { res.status(500).json({ error:'Failed' }); } });
+router.get('/:id/statement', authenticate, async (req, res) => { try { const { from, to } = req.query; const w = dateRangeWhere(from, to); const [wl,py] = await Promise.all([prisma.workLog.findMany({ where: { employeeId:req.params.id, companyId:req.companyId, ...w }, include: { taskType: { select: { name:true } } }, orderBy: { date:'desc' } }), prisma.payment.findMany({ where: { employeeId:req.params.id, companyId:req.companyId, ...w }, orderBy: { date:'desc' } })]); const te=wl.reduce((s,x)=>s+x.totalPay,0), tp=py.reduce((s,x)=>s+x.amount,0); res.json({ workLogs:wl, payments:py, totalEarned:te, totalPaid:tp, balance:te-tp }); } catch { res.status(500).json({ error:'Failed' }); } });
 
 module.exports = router;

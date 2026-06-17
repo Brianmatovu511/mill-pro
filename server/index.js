@@ -5,12 +5,13 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const config = require('./config');
 const logger = require('./utils/logger');
 const correlationId = require('./middleware/correlationId');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = config.port;
 
 // Trust the first reverse proxy (nginx) so req.ip and X-Forwarded-For
 // resolve to the real client — required for accurate rate limiting.
@@ -42,7 +43,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
+  origin: config.isProduction
     ? process.env.CLIENT_URL || true
     : ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
@@ -84,7 +85,7 @@ app.use('/api/community',        require('./routes/community'));
 app.use('/api/news',             require('./routes/news'));
 
 // Serve React in production
-if (process.env.NODE_ENV === 'production') {
+if (config.isProduction) {
   app.use(express.static(path.join(__dirname, '../client/dist')));
   app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
 }
@@ -94,7 +95,7 @@ app.use(errorHandler);
 
 const { ensureSuperAdmin } = require('./utils/superSeed');
 app.listen(PORT, async () => {
-  logger.info(`MillPro Enterprise started`, { port: PORT, env: process.env.NODE_ENV || 'development' });
+  logger.info(`MillPro Enterprise started`, { port: PORT, env: config.env });
   await ensureSuperAdmin();
 });
 

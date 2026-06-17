@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
+const { computeInventory } = require('../utils/inventory');
 router.get('/', authenticate, async (req, res) => { try {
   const cid = req.companyId, now = new Date();
   const wkS = new Date(now); wkS.setDate(now.getDate()-now.getDay()+1); wkS.setHours(0,0,0,0);
@@ -19,18 +20,8 @@ router.get('/', authenticate, async (req, res) => { try {
   ]);
   const mI=mb.reduce((s,b)=>s+b.maizeIn,0), mF=mb.reduce((s,b)=>s+b.flourOut,0);
   const mSV=ms._sum.total||0, mEV=me._sum.amount||0, mPV=mp._sum.totalCost||0, mPY=mpy._sum.amount||0;
-  // Inventory
-  const [tp,tb,tsi,tadj] = await Promise.all([
-    prisma.purchase.findMany({ where: { companyId:cid }, select: { itemType:true, quantity:true } }),
-    prisma.productionBatch.findMany({ where: { companyId:cid }, select: { maizeIn:true, flourOut:true, branOut:true } }),
-    prisma.saleItem.findMany({ where: { sale: { companyId:cid } }, select: { itemType:true, quantity:true } }),
-    prisma.stockAdjustment.findMany({ where: { companyId:cid }, select: { itemType:true, quantity:true } }),
-  ]);
-  const inv = { RAW_MAIZE:0, FLOUR:0, BRAN:0, PACKAGING:0 };
-  tp.forEach(p=>{ if(p.itemType==='MAIZE') inv.RAW_MAIZE+=p.quantity; else if(p.itemType==='PACKAGING') inv.PACKAGING+=p.quantity; });
-  tb.forEach(b=>{ inv.RAW_MAIZE-=b.maizeIn; inv.FLOUR+=b.flourOut; inv.BRAN+=b.branOut; });
-  tsi.forEach(i=>{ if(i.itemType==='FLOUR') inv.FLOUR-=i.quantity; else if(i.itemType==='BRAN') inv.BRAN-=i.quantity; });
-  tadj.forEach(a=>{ if(inv[a.itemType]!==undefined) inv[a.itemType]+=a.quantity; });
+  // Inventory (shared calculation — see utils/inventory.js)
+  const inv = await computeInventory(cid);
   // Owed wages
   const [allWL,allPY] = await Promise.all([prisma.workLog.aggregate({ where: { companyId:cid }, _sum: { totalPay:true } }), prisma.payment.aggregate({ where: { companyId:cid }, _sum: { amount:true } })]);
   const owed = (allWL._sum.totalPay||0)-(allPY._sum.amount||0);
