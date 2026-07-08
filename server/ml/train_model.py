@@ -1,20 +1,32 @@
 import pandas as pd
+import numpy as np
 from sklearn.linear_model import LinearRegression
 
-# Sample data: past monthly flour output (in kg)
-data = {
-    "month": [1, 2, 3, 4, 5, 6],
-    "output_kg": [1000, 1100, 1050, 1200, 1250, 1300]
-}
-df = pd.DataFrame(data)
+# Simulate 45 days of production data, matching MillPro's real data patterns
+# (maize input, flour/bran yield %, waste — based on actual seed data ranges)
+np.random.seed(42)  # for consistent, reproducible results
 
-# Train a simple model
-X = df[["month"]]
-y = df["output_kg"]
+days = 45
+maize_in = np.random.randint(900, 2400, size=days)
+yield_pct = np.random.uniform(0.68, 0.77, size=days)
+flour_out = (maize_in * yield_pct).round()
+
+df = pd.DataFrame({
+    "day": range(1, days + 1),
+    "maize_in": maize_in,
+    "flour_out": flour_out
+})
+
+# Train a simple model: predict flour output from maize input
+X = df[["maize_in"]]
+y = df["flour_out"]
 model = LinearRegression()
 model.fit(X, y)
 
-# Predict next month
-next_month = pd.DataFrame({"month": [7]})
-prediction = model.predict(next_month)
-print(f"Predicted output for month 7: {prediction[0]:.0f} kg")
+# Example prediction: if we know tomorrow's maize input, forecast flour output
+next_maize_in = pd.DataFrame({"maize_in": [1800]})
+prediction = model.predict(next_maize_in)
+
+print(f"Trained on {days} days of production data")
+print(f"Model coefficient (flour yield rate): {model.coef_[0]:.2f}")
+print(f"Predicted flour output for 1800kg maize input: {prediction[0]:.0f} kg")
