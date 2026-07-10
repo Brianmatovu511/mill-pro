@@ -80,7 +80,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t millpro:${{ github.sha }} .
+        run: |
+          for attempt in 1 2 3; do
+            if docker build -t millpro:${{ github.sha }} .; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            echo "Docker build failed on attempt $attempt. Retrying in 15s..."
+            sleep 15
+          done
 
       - name: Verify image starts
         run: |
